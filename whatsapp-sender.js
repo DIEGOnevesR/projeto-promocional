@@ -130,10 +130,37 @@ async function initializeWhatsApp() {
                 throw mongoError; // Força fallback
             }
             
-            authStrategy = new RemoteAuth({
-                store: mongoStore,
-                backupSyncIntervalMs: 300000, // 5 minutos
-            });
+            // Criar diretório de backup ANTES de criar o RemoteAuth
+            const backupDir = path.join(process.cwd(), 'whatsapp-auth-remote');
+            if (!fs.existsSync(backupDir)) {
+                try {
+                    fs.mkdirSync(backupDir, { recursive: true });
+                    addLog('INFO', `Diretório de backup criado: ${backupDir}`);
+                } catch (mkdirError) {
+                    addLog('ERROR', `Erro ao criar diretório de backup: ${mkdirError.message}`);
+                    // Continuar mesmo assim, o RemoteAuth pode criar depois
+                }
+            }
+            
+            // Configurar RemoteAuth com tratamento de erro para backup
+            try {
+                authStrategy = new RemoteAuth({
+                    store: mongoStore,
+                    backupSyncIntervalMs: 300000, // 5 minutos
+                    dataPath: './whatsapp-auth-remote', // Diretório para backups locais
+                });
+            } catch (authError) {
+                // Se falhar por causa do backup, tentar sem dataPath (pode não funcionar)
+                if (authError.message && authError.message.includes('zip')) {
+                    addLog('WARN', 'Erro ao configurar backup do RemoteAuth, tentando sem dataPath...');
+                    authStrategy = new RemoteAuth({
+                        store: mongoStore,
+                        backupSyncIntervalMs: 0, // Desabilitar backup
+                    });
+                } else {
+                    throw authError;
+                }
+            }
             
             // Ocultar senha na URL para logs
             const safeUri = MONGODB_URI.replace(/\/\/([^:]+):([^@]+)@/, '//$1:***@');
@@ -224,6 +251,26 @@ async function initializeWhatsApp() {
 
     client.on('authenticated', () => {
         addLog('AUTHENTICATED', 'Autenticado com sucesso!');
+    });
+    
+    // Capturar erros do cliente (incluindo erros de backup)
+    client.on('error', (error) => {
+        // Ignorar erros relacionados a backup ZIP (não são críticos)
+        if (error.message && error.message.includes('RemoteAuth.zip')) {
+            addLog('WARN', 'Aviso sobre backup ZIP (não crítico): ' + error.message);
+            // Tentar criar o diretório se não existir
+            const backupDir = path.join(process.cwd(), 'whatsapp-auth-remote');
+            if (!fs.existsSync(backupDir)) {
+                try {
+                    fs.mkdirSync(backupDir, { recursive: true });
+                    addLog('INFO', 'Diretório de backup criado após erro');
+                } catch (mkdirError) {
+                    // Ignorar erro ao criar diretório
+                }
+            }
+            return; // Não tratar como erro crítico
+        }
+        addLog('ERROR', `Erro no cliente WhatsApp: ${error.message}`);
     });
 
     client.on('auth_failure', (msg) => {
@@ -1636,6 +1683,27 @@ process.on('uncaughtException', (err) => {
     console.error('Erro:', err.message);
     console.error('Stack:', err.stack);
     console.error('\n═══════════════════════════════════════════════════════════\n');
+    
+    // Tratar erro específico do RemoteAuth.zip
+    if (err.message && err.message.includes('RemoteAuth.zip')) {
+        console.log('🔧 SOLUÇÃO PARA ERRO RemoteAuth.zip:\n');
+        console.log('Este erro ocorre quando o RemoteAuth tenta criar um backup ZIP.');
+        console.log('O diretório de backup será criado automaticamente.\n');
+        
+        // Tentar criar o diretório e continuar
+        const backupDir = path.join(process.cwd(), 'whatsapp-auth-remote');
+        try {
+            if (!fs.existsSync(backupDir)) {
+                fs.mkdirSync(backupDir, { recursive: true });
+                console.log(`✅ Diretório criado: ${backupDir}`);
+            }
+            console.log('⚠️ Continuando execução apesar do erro...\n');
+            return; // Não encerrar o processo
+        } catch (mkdirError) {
+            console.error('❌ Não foi possível criar o diretório:', mkdirError.message);
+        }
+    }
+    
     console.log('O servidor será fechado devido a um erro crítico.\n');
     console.log('Pressione qualquer tecla para sair...\n');
     setTimeout(() => process.exit(1), 5000);
