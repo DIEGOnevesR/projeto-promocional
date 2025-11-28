@@ -499,19 +499,30 @@ app.get('/list-groups', async (req, res) => {
 
         console.log('📋 Listando grupos do WhatsApp... (pode levar alguns segundos)');
         
-        // Limitar tempo de execução
+        // Limitar tempo de execução (aumentado para 90 segundos)
         const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Timeout ao listar grupos')), 45000)
+            setTimeout(() => reject(new Error('Timeout ao listar grupos (90s)')), 90000)
         );
+        
+        console.log('⏳ Aguardando resposta do WhatsApp...');
+        const startTime = Date.now();
         
         const getChatsPromise = client.getChats();
         const chats = await Promise.race([getChatsPromise, timeoutPromise]);
         
+        const elapsedTime = ((Date.now() - startTime) / 1000).toFixed(1);
+        console.log(`✅ Chats recebidos em ${elapsedTime}s. Total: ${chats.length} chat(s)`);
+        
         const groups = [];
         let processed = 0;
+        let totalChats = chats.length;
+        
+        console.log(`🔄 Processando ${totalChats} chat(s) para encontrar grupos...`);
 
         // Processar em lotes menores com pausas maiores
-        for (const chat of chats) {
+        for (let i = 0; i < chats.length; i++) {
+            const chat = chats[i];
+            
             if (chat.isGroup && processed < MAX_GROUPS) {
                 try {
                     const participants = chat.participants ? chat.participants.length : 0;
@@ -522,11 +533,16 @@ app.get('/list-groups', async (req, res) => {
                         isGroup: true
                     });
                     processed++;
+                    
+                    // Log de progresso a cada 50 grupos
+                    if (processed % 50 === 0) {
+                        console.log(`📊 Progresso: ${processed} grupo(s) encontrado(s) de ${i + 1}/${totalChats} chat(s) processado(s)`);
+                    }
                 } catch (err) {
                     // Silenciar erros individuais para não sobrecarregar logs
                     if (processed === 0) {
-                    console.warn(`⚠️ Erro ao processar grupo: ${err.message}`);
-                }
+                        console.warn(`⚠️ Erro ao processar grupo: ${err.message}`);
+                    }
                 }
             }
             
@@ -540,6 +556,8 @@ app.get('/list-groups', async (req, res) => {
                 await new Promise(resolve => setTimeout(resolve, 200));
             }
         }
+        
+        console.log(`✅ Processamento concluído: ${groups.length} grupo(s) encontrado(s) de ${totalChats} chat(s)`);
 
         // Ordenar por nome
         groups.sort((a, b) => a.name.localeCompare(b.name));
@@ -559,9 +577,23 @@ app.get('/list-groups', async (req, res) => {
 
     } catch (error) {
         console.error('❌ Erro ao listar grupos:', error.message);
+        console.error('📊 Detalhes do erro:', {
+            name: error.name,
+            message: error.message,
+            stack: error.stack?.split('\n').slice(0, 3).join('\n')
+        });
+        
+        // Se for timeout, sugerir tentar novamente
+        if (error.message.includes('Timeout')) {
+            addLog('ERROR', `Timeout ao listar grupos. O WhatsApp pode estar lento. Tente novamente em alguns segundos.`);
+        }
+        
         res.status(500).json({
             success: false,
-            error: error.message
+            error: error.message,
+            suggestion: error.message.includes('Timeout') 
+                ? 'O WhatsApp está demorando para responder. Tente novamente em alguns segundos.' 
+                : 'Verifique se o cliente WhatsApp está conectado e funcionando.'
         });
     }
 });
