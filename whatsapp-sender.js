@@ -300,15 +300,34 @@ async function initializeWhatsApp() {
 
     // client.on('message', ...) // mantido desativado para reduzir uso de CPU
 
+    // Inicializar cliente com tratamento de erro melhorado
     try {
-        client.initialize();
+        addLog('INFO', 'Inicializando cliente WhatsApp...');
+        client.initialize().catch((initError) => {
+            // Se o erro for relacionado ao RemoteAuth.zip, tentar continuar
+            if (initError.message && initError.message.includes('RemoteAuth.zip')) {
+                addLog('WARN', 'Erro do RemoteAuth.zip durante inicialização (não crítico). Continuando...');
+                // Não encerrar o cliente por esse erro
+                return;
+            }
+            addLog('ERROR', `Erro ao inicializar cliente WhatsApp: ${initError.message}`);
+            if (initError.stack) {
+                addLog('ERROR', `Stack: ${initError.stack.split('\n').slice(0, 3).join('\n')}`);
+            }
+        });
     } catch (error) {
-        addLog('ERROR', `Erro ao inicializar cliente WhatsApp: ${error.message}`);
-        client = null;
-        serverRunning = false;
-        isReady = false;
-        currentQR = null;
-        throw error;
+        // Se o erro for relacionado ao RemoteAuth.zip, tentar continuar
+        if (error.message && error.message.includes('RemoteAuth.zip')) {
+            addLog('WARN', 'Erro do RemoteAuth.zip durante inicialização (não crítico). Continuando...');
+            // Não encerrar o cliente por esse erro
+        } else {
+            addLog('ERROR', `Erro ao inicializar cliente WhatsApp: ${error.message}`);
+            client = null;
+            serverRunning = false;
+            isReady = false;
+            currentQR = null;
+            throw error;
+        }
     }
 }
 
