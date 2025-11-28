@@ -3033,7 +3033,7 @@
             const jsonStr = JSON.stringify(template, null, 2);
             localStorage.setItem('bannerTemplate', jsonStr);
             
-            fetch('${BACKEND_URL}/save-template', {
+            fetch(`${BACKEND_URL}/save-template`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: jsonStr
@@ -3046,7 +3046,7 @@
             try {
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 2000);
-                const response = await fetch('${BACKEND_URL}/health', {
+                const response = await fetch(`${BACKEND_URL}/health`, {
                     method: 'GET',
                     signal: controller.signal
                 });
@@ -3089,7 +3089,7 @@
                 addLog('📋 Para iniciar o servidor manualmente:');
                 addLog('   1. Abra um terminal/PowerShell nesta pasta do projeto');
                 addLog('   2. Execute o comando: python server.py');
-                addLog('   3. Aguarde a mensagem "Servidor disponível em: ${BACKEND_URL}"');
+                addLog(`   3. Aguarde a mensagem "Servidor disponível em: ${BACKEND_URL}"`);
                 addLog('   4. Clique novamente em "Verificar/Iniciar Servidor"');
                 addLog('');
                 addLog('💡 Dica: Você também pode executar o arquivo "iniciar-servidor.bat" (Windows)');
@@ -3178,7 +3178,7 @@
             document.getElementById('progress-container').style.display = 'block';
             addLog('🚀 Iniciando geração de banners...');
             
-            fetch('${BACKEND_URL}/execute', {
+            fetch(`${BACKEND_URL}/execute`, {
                 method: 'POST'
             }).then(res => res.json())
             .then(data => {
@@ -3197,7 +3197,7 @@
         }
         
         function checkStatus() {
-            fetch('${BACKEND_URL}/status')
+            fetch(`${BACKEND_URL}/status`)
             .then(res => res.json())
             .then(data => {
                 if (data.progress !== undefined) {
@@ -3279,7 +3279,7 @@
             document.getElementById('execute-btn').style.display = 'block';
             document.getElementById('stop-btn').style.display = 'none';
             
-            fetch('${BACKEND_URL}/stop', {
+            fetch(`${BACKEND_URL}/stop`, {
                 method: 'POST'
             }).catch(err => {
                 console.warn('Erro ao parar execução:', err);
@@ -3848,7 +3848,7 @@
             formData.append('image', file);
             
             try {
-                const response = await fetch('${BACKEND_URL}/upload-image', {
+                const response = await fetch(`${BACKEND_URL}/upload-image`, {
                     method: 'POST',
                     body: formData
                 });
@@ -5216,7 +5216,7 @@
                     const formData = new FormData();
                     formData.append('image', file);
                     
-                    const uploadResponse = await fetch('${BACKEND_URL}/upload-image', {
+                    const uploadResponse = await fetch(`${BACKEND_URL}/upload-image`, {
                         method: 'POST',
                         body: formData
                     });
