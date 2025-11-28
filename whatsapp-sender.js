@@ -130,16 +130,16 @@ async function initializeWhatsApp() {
                 throw mongoError; // Força fallback
             }
             
-            // Configurar RemoteAuth SEM backup local (apenas MongoDB)
-            // O backup local causa problemas no Render (filesystem efêmero)
-            // Usamos apenas MongoDB para armazenar a sessão
+            // Configurar RemoteAuth com backup mínimo (60000ms = 1 minuto)
+            // O RemoteAuth requer pelo menos 60000ms, mas não usamos dataPath
+            // para evitar problemas com ZIP no Render (filesystem efêmero)
             try {
                 authStrategy = new RemoteAuth({
                     store: mongoStore,
-                    backupSyncIntervalMs: 0, // Desabilitar backup local completamente
+                    backupSyncIntervalMs: 60000, // Mínimo aceito: 1 minuto
                     // Não usar dataPath para evitar problemas com ZIP
                 });
-                addLog('INFO', 'RemoteAuth configurado sem backup local (apenas MongoDB)');
+                addLog('INFO', 'RemoteAuth configurado com MongoDB (backup mínimo)');
             } catch (authError) {
                 addLog('ERROR', `Erro ao configurar RemoteAuth: ${authError.message}`);
                 throw authError;
