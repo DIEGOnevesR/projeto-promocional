@@ -1,4 +1,5 @@
-const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
+const { Client, LocalAuth, RemoteAuth, MessageMedia } = require('whatsapp-web.js');
+const MongoStore = require('./mongo-store');
 const qrcode = require('qrcode-terminal');
 const express = require('express');
 const fs = require('fs');
@@ -25,6 +26,16 @@ app.use(express.json());
 // Número do WhatsApp para enviar (formato: 5534999499430@c.us)
 const WHATSAPP_NUMBER = process.env.WHATSAPP_NUMBER || '5534999499430@c.us';
 const WHATSAPP_LINK = 'wa.me/551151944697?text=oi';
+
+// Configuração MongoDB para RemoteAuth
+const MONGODB_URI = process.env.MONGODB_URI || process.env.MONGO_URI || 'mongodb://localhost:27017';
+const MONGODB_DB_NAME = process.env.MONGODB_DB_NAME || 'whatsapp-sessions';
+const USE_REMOTE_AUTH = process.env.USE_REMOTE_AUTH === 'true' || !!process.env.MONGODB_URI;
+
+// Configuração MongoDB para RemoteAuth
+const MONGODB_URI = process.env.MONGODB_URI || process.env.MONGO_URI || 'mongodb://localhost:27017';
+const MONGODB_DB_NAME = process.env.MONGODB_DB_NAME || 'whatsapp-sessions';
+const USE_REMOTE_AUTH = process.env.USE_REMOTE_AUTH === 'true' || !!process.env.MONGODB_URI;
 
 let client = null;
 let isReady = false;
@@ -103,10 +114,45 @@ function initializeWhatsApp() {
     isReady = false;
     currentQR = null;
     
-    client = new Client({
-        authStrategy: new LocalAuth({
+    // Escolher estratégia de autenticação
+    let authStrategy;
+    if (USE_REMOTE_AUTH) {
+        addLog('INFO', 'Usando RemoteAuth com MongoDB');
+        try {
+            const mongoStore = new MongoStore({
+                uri: MONGODB_URI,
+                dbName: MONGODB_DB_NAME,
+                collectionName: 'whatsapp_sessions',
+                mongoOptions: {
+                    useNewUrlParser: true,
+                    useUnifiedTopology: true,
+                },
+            });
+            
+            authStrategy = new RemoteAuth({
+                store: mongoStore,
+                backupSyncIntervalMs: 300000, // 5 minutos
+            });
+            
+            // Ocultar senha na URL para logs
+            const safeUri = MONGODB_URI.replace(/\/\/([^:]+):([^@]+)@/, '//$1:***@');
+            addLog('INFO', `MongoDB configurado: ${safeUri}/${MONGODB_DB_NAME}`);
+        } catch (error) {
+            addLog('ERROR', `Erro ao configurar MongoDB: ${error.message}`);
+            addLog('INFO', 'Falling back para LocalAuth');
+            authStrategy = new LocalAuth({
+                dataPath: './whatsapp-auth'
+            });
+        }
+    } else {
+        addLog('INFO', 'Usando LocalAuth (armazenamento local)');
+        authStrategy = new LocalAuth({
             dataPath: './whatsapp-auth'
-        }),
+        });
+    }
+    
+    client = new Client({
+        authStrategy: authStrategy,
         puppeteer: {
             headless: true,
             args: [
