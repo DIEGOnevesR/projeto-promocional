@@ -130,36 +130,19 @@ async function initializeWhatsApp() {
                 throw mongoError; // Força fallback
             }
             
-            // Criar diretório de backup ANTES de criar o RemoteAuth
-            const backupDir = path.join(process.cwd(), 'whatsapp-auth-remote');
-            if (!fs.existsSync(backupDir)) {
-                try {
-                    fs.mkdirSync(backupDir, { recursive: true });
-                    addLog('INFO', `Diretório de backup criado: ${backupDir}`);
-                } catch (mkdirError) {
-                    addLog('ERROR', `Erro ao criar diretório de backup: ${mkdirError.message}`);
-                    // Continuar mesmo assim, o RemoteAuth pode criar depois
-                }
-            }
-            
-            // Configurar RemoteAuth com tratamento de erro para backup
+            // Configurar RemoteAuth SEM backup local (apenas MongoDB)
+            // O backup local causa problemas no Render (filesystem efêmero)
+            // Usamos apenas MongoDB para armazenar a sessão
             try {
                 authStrategy = new RemoteAuth({
                     store: mongoStore,
-                    backupSyncIntervalMs: 300000, // 5 minutos
-                    dataPath: './whatsapp-auth-remote', // Diretório para backups locais
+                    backupSyncIntervalMs: 0, // Desabilitar backup local completamente
+                    // Não usar dataPath para evitar problemas com ZIP
                 });
+                addLog('INFO', 'RemoteAuth configurado sem backup local (apenas MongoDB)');
             } catch (authError) {
-                // Se falhar por causa do backup, tentar sem dataPath (pode não funcionar)
-                if (authError.message && authError.message.includes('zip')) {
-                    addLog('WARN', 'Erro ao configurar backup do RemoteAuth, tentando sem dataPath...');
-                    authStrategy = new RemoteAuth({
-                        store: mongoStore,
-                        backupSyncIntervalMs: 0, // Desabilitar backup
-                    });
-                } else {
-                    throw authError;
-                }
+                addLog('ERROR', `Erro ao configurar RemoteAuth: ${authError.message}`);
+                throw authError;
             }
             
             // Ocultar senha na URL para logs
