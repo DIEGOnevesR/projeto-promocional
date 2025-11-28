@@ -19,6 +19,8 @@ class MongoStore {
                 strict: true,
                 deprecationErrors: true,
             },
+            tls: true,
+            tlsAllowInvalidCertificates: false,
             ...options.mongoOptions
         };
     }
@@ -29,8 +31,22 @@ class MongoStore {
         }
 
         try {
-            this.client = new MongoClient(this.uri, this.mongoOptions);
-            await this.client.connect();
+            // Criar cliente com opções SSL/TLS corretas para MongoDB Atlas
+            // Remover opções deprecated e usar apenas o necessário
+            const clientOptions = {
+                serverApi: this.mongoOptions.serverApi,
+            };
+            
+            this.client = new MongoClient(this.uri, clientOptions);
+            
+            // Conectar com timeout
+            await Promise.race([
+                this.client.connect(),
+                new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Timeout ao conectar ao MongoDB (30s)')), 30000)
+                )
+            ]);
+            
             this.db = this.client.db(this.dbName);
             this.collection = this.db.collection(this.collectionName);
             
@@ -40,6 +56,14 @@ class MongoStore {
             console.log(`✅ Conectado ao MongoDB: ${this.dbName}/${this.collectionName}`);
         } catch (error) {
             console.error('❌ Erro ao conectar ao MongoDB:', error.message);
+            if (this.client) {
+                try {
+                    await this.client.close();
+                } catch (closeError) {
+                    // Ignorar erro ao fechar
+                }
+                this.client = null;
+            }
             throw error;
         }
     }

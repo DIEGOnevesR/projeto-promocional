@@ -98,7 +98,7 @@ async function stopWhatsAppClient() {
 }
 
 // Inicializar cliente WhatsApp
-function initializeWhatsApp() {
+async function initializeWhatsApp() {
     if (client) {
         addLog('INFO', 'Cliente WhatsApp já está inicializado.');
         return;
@@ -112,17 +112,23 @@ function initializeWhatsApp() {
     // Escolher estratégia de autenticação
     let authStrategy;
     if (USE_REMOTE_AUTH) {
-        addLog('INFO', 'Usando RemoteAuth com MongoDB');
+        addLog('INFO', 'Tentando usar RemoteAuth com MongoDB...');
         try {
             const mongoStore = new MongoStore({
                 uri: MONGODB_URI,
                 dbName: MONGODB_DB_NAME,
                 collectionName: 'whatsapp_sessions',
-                mongoOptions: {
-                    useNewUrlParser: true,
-                    useUnifiedTopology: true,
-                },
             });
+            
+            // Testar conexão antes de usar
+            try {
+                await mongoStore.connect();
+                addLog('INFO', '✅ Conectado ao MongoDB com sucesso');
+            } catch (mongoError) {
+                addLog('ERROR', `Erro ao conectar ao MongoDB: ${mongoError.message}`);
+                addLog('INFO', 'Falling back para LocalAuth devido a erro de conexão');
+                throw mongoError; // Força fallback
+            }
             
             authStrategy = new RemoteAuth({
                 store: mongoStore,
@@ -134,7 +140,7 @@ function initializeWhatsApp() {
             addLog('INFO', `MongoDB configurado: ${safeUri}/${MONGODB_DB_NAME}`);
         } catch (error) {
             addLog('ERROR', `Erro ao configurar MongoDB: ${error.message}`);
-            addLog('INFO', 'Falling back para LocalAuth');
+            addLog('INFO', 'Usando LocalAuth como fallback (sessão não será persistida)');
             authStrategy = new LocalAuth({
                 dataPath: './whatsapp-auth'
             });
