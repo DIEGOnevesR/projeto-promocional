@@ -29,6 +29,9 @@ class GmailService:
         self.token_file = token_file
         self.service = None
         self.creds = None
+        
+        # Criar credentials.json a partir de variáveis de ambiente se não existir
+        self._create_credentials_from_env()
     
     def authenticate(self):
         """
@@ -40,6 +43,29 @@ class GmailService:
         # Verificar se já existe token salvo
         if os.path.exists(self.token_file):
             self.creds = Credentials.from_authorized_user_file(self.token_file, SCOPES)
+        elif os.environ.get('GMAIL_REFRESH_TOKEN'):
+            # Criar credenciais a partir de refresh token em variável de ambiente
+            try:
+                client_id = os.environ.get('GMAIL_CLIENT_ID')
+                client_secret = os.environ.get('GMAIL_CLIENT_SECRET')
+                refresh_token = os.environ.get('GMAIL_REFRESH_TOKEN')
+                
+                if client_id and client_secret and refresh_token:
+                    self.creds = Credentials(
+                        token=None,
+                        refresh_token=refresh_token,
+                        token_uri="https://oauth2.googleapis.com/token",
+                        client_id=client_id,
+                        client_secret=client_secret,
+                        scopes=SCOPES
+                    )
+                    # Tentar obter novo token
+                    try:
+                        self.creds.refresh(Request())
+                    except Exception as e:
+                        print(f"Erro ao renovar token inicial: {e}")
+            except Exception as e:
+                print(f"Erro ao criar credenciais a partir de variáveis de ambiente: {e}")
         
         # Se não há credenciais válidas, solicitar autorização
         if not self.creds or not self.creds.valid:
@@ -53,21 +79,37 @@ class GmailService:
             else:
                 # Fazer fluxo de autenticação OAuth2
                 if not os.path.exists(self.credentials_file):
-                    raise FileNotFoundError(
-                        f"Arquivo de credenciais não encontrado: {self.credentials_file}\n"
-                        "Por favor, baixe o arquivo credentials.json do Google Cloud Console"
-                    )
+                    # Tentar criar novamente a partir de variáveis de ambiente
+                    self._create_credentials_from_env()
+                    
+                    if not os.path.exists(self.credentials_file):
+                        raise FileNotFoundError(
+                            f"Arquivo de credenciais não encontrado: {self.credentials_file}\n"
+                            "Por favor, configure as variáveis de ambiente GMAIL_CLIENT_ID e GMAIL_CLIENT_SECRET\n"
+                            "ou baixe o arquivo credentials.json do Google Cloud Console"
+                        )
                 
                 try:
                     flow = InstalledAppFlow.from_client_secrets_file(
                         self.credentials_file, SCOPES)
-                    # Usar run_local_server com configuração explícita
-                    self.creds = flow.run_local_server(
-                        port=0,
-                        open_browser=True,
-                        authorization_prompt_message='Por favor, visite esta URL para autorizar o acesso:',
-                        success_message='Autenticação bem-sucedida! Você pode fechar esta janela.'
-                    )
+                    
+                    # Em produção (Render), usar run_console em vez de run_local_server
+                    if os.environ.get('FLASK_ENV') == 'production' or os.environ.get('RENDER'):
+                        # Em produção, retornar URL de autorização
+                        auth_url, _ = flow.authorization_url(prompt='consent')
+                        raise Exception(
+                            f"Autenticação OAuth2 necessária. "
+                            f"Por favor, visite esta URL para autorizar: {auth_url}\n"
+                            f"Depois, configure o token via variável de ambiente GMAIL_REFRESH_TOKEN"
+                        )
+                    else:
+                        # Em desenvolvimento, usar servidor local
+                        self.creds = flow.run_local_server(
+                            port=0,
+                            open_browser=True,
+                            authorization_prompt_message='Por favor, visite esta URL para autorizar o acesso:',
+                            success_message='Autenticação bem-sucedida! Você pode fechar esta janela.'
+                        )
                 except Exception as e:
                     print(f"Erro durante autenticação OAuth2: {e}")
                     raise Exception(f"Erro na autenticação OAuth2: {str(e)}. Certifique-se de que o arquivo credentials.json está correto e que a Gmail API está habilitada no Google Cloud Console.")
@@ -83,6 +125,36 @@ class GmailService:
         except HttpError as error:
             print(f'Erro ao construir serviço Gmail: {error}')
             return False
+    
+    def _create_credentials_from_env(self):
+        """Cria credentials.json a partir de variáveis de ambiente se não existir"""
+        if os.path.exists(self.credentials_file):
+            return  # Arquivo já existe
+        
+        # Tentar criar a partir de variáveis de ambiente
+        client_id = os.environ.get('GMAIL_CLIENT_ID')
+        client_secret = os.environ.get('GMAIL_CLIENT_SECRET')
+        project_id = os.environ.get('GMAIL_PROJECT_ID', 'gmail-monitor')
+        
+        if client_id and client_secret:
+            credentials_data = {
+                "installed": {
+                    "client_id": client_id,
+                    "project_id": project_id,
+                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                    "token_uri": "https://oauth2.googleapis.com/token",
+                    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+                    "client_secret": client_secret,
+                    "redirect_uris": ["http://localhost", "urn:ietf:wg:oauth:2.0:oob"]
+                }
+            }
+            
+            try:
+                with open(self.credentials_file, 'w') as f:
+                    json.dump(credentials_data, f, indent=2)
+                print(f"✓ Arquivo credentials.json criado a partir de variáveis de ambiente")
+            except Exception as e:
+                print(f"⚠ Erro ao criar credentials.json: {e}")
     
     def is_authenticated(self):
         """Verifica se está autenticado"""
