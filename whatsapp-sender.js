@@ -32,11 +32,6 @@ const MONGODB_URI = process.env.MONGODB_URI || process.env.MONGO_URI || 'mongodb
 const MONGODB_DB_NAME = process.env.MONGODB_DB_NAME || 'whatsapp-sessions';
 const USE_REMOTE_AUTH = process.env.USE_REMOTE_AUTH === 'true' || !!process.env.MONGODB_URI;
 
-// Configuração MongoDB para RemoteAuth
-const MONGODB_URI = process.env.MONGODB_URI || process.env.MONGO_URI || 'mongodb://localhost:27017';
-const MONGODB_DB_NAME = process.env.MONGODB_DB_NAME || 'whatsapp-sessions';
-const USE_REMOTE_AUTH = process.env.USE_REMOTE_AUTH === 'true' || !!process.env.MONGODB_URI;
-
 let client = null;
 let isReady = false;
 let serverRunning = false;
