@@ -1,0 +1,15 @@
+pandas
+playwright
+requests
+openpyxl
+rembg
+Pillow
+numpy
+onnxruntime
+google-auth
+google-auth-oauthlib
+google-auth-httplib2
+google-api-python-client
+flask
+flask-cors
+gunicorn

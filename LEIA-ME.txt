@@ -1,0 +1,106 @@
+═══════════════════════════════════════════════════════════════
+  ENVIO DE BANNERS VIA WHATSAPP - INSTRUÇÕES
+═══════════════════════════════════════════════════════════════
+
+Bem-vindo! Este arquivo contém as instruções básicas para usar
+o sistema de envio de banners via WhatsApp.
+
+═══════════════════════════════════════════════════════════════
+  COMEÇAR RAPIDAMENTE
+═══════════════════════════════════════════════════════════════
+
+1. INSTALAR DEPENDÊNCIAS
+   Execute: npm install
+
+2. INICIAR SERVIDOR WHATSAPP
+   Execute: start-whatsapp-server.bat
+   - Escaneie o QR Code com seu WhatsApp
+   - Aguarde: ✅ Cliente WhatsApp pronto!
+
+3. TESTAR O SISTEMA
+   Execute: test-whatsapp.bat
+   - Siga as instruções na tela
+   - Verifique seu WhatsApp
+
+4. GERAR BANNERS
+   Execute: python main.py
+   - Os banners serão enviados automaticamente!
+
+═══════════════════════════════════════════════════════════════
+  ARQUIVOS DE INSTRUÇÕES DISPONÍVEIS
+═══════════════════════════════════════════════════════════════
+
+Para abrir qualquer arquivo, clique duas vezes nele ou execute:
+
+ABRIR_INSTRUCOES.bat
+
+Arquivos disponíveis:
+
+1. INICIO_RAPIDO.txt
+   → Guia rápido para começar (recomendado para iniciantes)
+
+2. TESTE_RAPIDO.txt
+   → Guia de teste rápido (3 passos)
+
+3. GUIA_TESTE_WHATSAPP.txt
+   → Guia completo de teste com solução de problemas
+
+4. README_WHATSAPP.txt
+   → Documentação completa do sistema
+
+5. LEIA-ME.txt
+   → Este arquivo (visão geral)
+
+═══════════════════════════════════════════════════════════════
+  COMO ABRIR OS ARQUIVOS
+═══════════════════════════════════════════════════════════════
+
+OPÇÃO 1: Usar o Menu
+   Execute: ABRIR_INSTRUCOES.bat
+   Selecione o arquivo que deseja abrir
+
+OPÇÃO 2: Abrir Diretamente
+   Clique duas vezes no arquivo .txt desejado
+   Ele abrirá no Bloco de Notas
+
+OPÇÃO 3: Abrir no Windows
+   Clique com o botão direito no arquivo .txt
+   Selecione "Abrir com" → "Bloco de Notas"
+
+═══════════════════════════════════════════════════════════════
+  CONFIGURAÇÃO ATUAL
+═══════════════════════════════════════════════════════════════
+
+Número do WhatsApp: 5534999499430
+Link de compra: wa.me/551151944697?text=oi
+
+Para alterar, edite o arquivo: whatsapp-sender.js
+
+═══════════════════════════════════════════════════════════════
+  COMANDOS ÚTEIS
+═══════════════════════════════════════════════════════════════
+
+npm install              → Instalar dependências
+start-whatsapp-server.bat → Iniciar servidor WhatsApp
+test-whatsapp.bat        → Testar o sistema
+python main.py           → Gerar banners
+ABRIR_INSTRUCOES.bat     → Menu de instruções
+
+═══════════════════════════════════════════════════════════════
+  PROBLEMAS?
+═══════════════════════════════════════════════════════════════
+
+Consulte o arquivo: GUIA_TESTE_WHATSAPP.txt
+Seção: Solução de Problemas
+
+═══════════════════════════════════════════════════════════════
+  PRONTO!
+═══════════════════════════════════════════════════════════════
+
+Agora você pode começar a usar o sistema!
+
+Para mais informações, consulte os arquivos de instruções
+listados acima.
+
+Buena suerte! 🚀
+

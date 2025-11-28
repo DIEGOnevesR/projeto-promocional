@@ -1,0 +1,189 @@
+═══════════════════════════════════════════════════════════════
+  CONFIGURAÇÃO - ENVIO AUTOMÁTICO PARA GRUPOS
+═══════════════════════════════════════════════════════════════
+
+Este guia explica como configurar o envio automático de banners
+para grupos do WhatsApp por unidade.
+
+═══════════════════════════════════════════════════════════════
+  COMO FUNCIONA
+═══════════════════════════════════════════════════════════════
+
+1. O sistema lê o arquivo "Unidades.xlsx"
+2. Cria um mapeamento: Unidade → ID do Grupo
+3. Ao terminar de gerar todos os banners de uma unidade:
+   - Envia TODAS as imagens geradas para aquela unidade
+   - Para o grupo configurado no arquivo Unidades.xlsx
+   - Com a legenda: "Compre no WhatsApp - wa.me/551151944697?text=oi"
+
+═══════════════════════════════════════════════════════════════
+  CONFIGURAÇÃO DO ARQUIVO Unidades.xlsx
+═══════════════════════════════════════════════════════════════
+
+O arquivo deve ter as seguintes colunas:
+
+┌──────────┬──────────────────────────────────────┐
+│ Unidade  │ id_grupo                             │
+├──────────┼──────────────────────────────────────┤
+│ SFL      │ 120363123456789012@g.us              │
+│ REC      │ 120363987654321098@g.us              │
+│ RJN      │ 120363111222333444@g.us              │
+│ ITA      │ 120363555666777888@g.us              │
+└──────────┴──────────────────────────────────────┘
+
+FORMATO DO ID DO GRUPO:
+- Deve estar no formato: 120363123456789012@g.us
+- Você pode obter os IDs executando: listar-grupos.bat
+- Os IDs são salvos em: whatsapp-groups.json
+
+═══════════════════════════════════════════════════════════════
+  COMO OBTER OS IDs DOS GRUPOS
+═══════════════════════════════════════════════════════════════
+
+1. Execute: listar-grupos.bat
+2. Os grupos serão salvos em: whatsapp-groups.json
+3. Abra o arquivo whatsapp-groups.json
+4. Copie o ID do grupo desejado
+5. Cole no arquivo Unidades.xlsx na coluna id_grupo
+
+EXEMPLO DO ARQUIVO whatsapp-groups.json:
+{
+  "groups": [
+    {
+      "id": "120363123456789012@g.us",
+      "name": "Grupo SFL - Promoções",
+      "participants": 25
+    }
+  ]
+}
+
+═══════════════════════════════════════════════════════════════
+  FLUXO DE EXECUÇÃO
+═══════════════════════════════════════════════════════════════
+
+1. Sistema lê Unidades.xlsx
+   ✓ Mapeamento carregado: X unidade(s) com grupo(s)
+
+2. Para cada unidade:
+   📦 Processando unidade: SFL
+   🎨 Gerando banner #1...
+   🎨 Gerando banner #2...
+   🎨 Gerando banner #3...
+   ✅ Unidade SFL: 3 banner(ns) gerado(s)
+
+3. Envio automático para o grupo:
+   📱 Enviando 3 banner(s) para o grupo da unidade SFL...
+   ✅ 3 de 3 banner(s) enviado(s) ao grupo com sucesso!
+
+═══════════════════════════════════════════════════════════════
+  COMPORTAMENTO ESPERADO
+═══════════════════════════════════════════════════════════════
+
+✓ Ao terminar de gerar TODOS os banners de uma unidade
+✓ Envia TODAS as imagens geradas para aquela unidade
+✓ Para o grupo configurado no arquivo Unidades.xlsx
+✓ Com a legenda: "Compre no WhatsApp - wa.me/551151944697?text=oi"
+✓ Uma imagem por vez, com pausa de 1 segundo entre envios
+
+═══════════════════════════════════════════════════════════════
+  MENSAGENS NO TERMINAL
+═══════════════════════════════════════════════════════════════
+
+Se a unidade TEM grupo configurado:
+  📱 Enviando X banner(s) para o grupo da unidade [NOME]...
+  ✅ X de X banner(s) enviado(s) ao grupo com sucesso!
+
+Se a unidade NÃO TEM grupo configurado:
+  ℹ Unidade [NOME] não tem grupo configurado. Pulando envio para grupos.
+
+Se houver erro:
+  ⚠ Nenhum banner foi enviado ao grupo. Verifique o servidor WhatsApp.
+
+═══════════════════════════════════════════════════════════════
+  SOLUÇÃO DE PROBLEMAS
+═══════════════════════════════════════════════════════════════
+
+PROBLEMA: "Arquivo Unidades.xlsx não encontrado"
+───────────────────────────────────────────────────────────────
+SOLUÇÃO:
+1. Crie o arquivo Unidades.xlsx na pasta do projeto
+2. Adicione as colunas: Unidade e id_grupo
+3. Preencha com os dados das unidades e IDs dos grupos
+
+───────────────────────────────────────────────────────────────
+
+PROBLEMA: "Unidade não tem grupo configurado"
+───────────────────────────────────────────────────────────────
+SOLUÇÃO:
+1. Verifique se o nome da unidade no CSV corresponde ao nome no Excel
+2. Verifique se há um id_grupo configurado para essa unidade
+3. Verifique se o id_grupo não está vazio ou com "nan"
+
+───────────────────────────────────────────────────────────────
+
+PROBLEMA: "Nenhum banner foi enviado ao grupo"
+───────────────────────────────────────────────────────────────
+SOLUÇÃO:
+1. Verifique se o servidor WhatsApp está rodando
+2. Verifique se o WhatsApp está autenticado
+3. Verifique se o ID do grupo está correto
+4. Verifique se você tem permissão para enviar no grupo
+5. Execute: diagnostico-whatsapp.bat
+
+───────────────────────────────────────────────────────────────
+
+PROBLEMA: "Erro ao carregar Unidades.xlsx"
+───────────────────────────────────────────────────────────────
+SOLUÇÃO:
+1. Verifique se o arquivo está no formato .xlsx (Excel)
+2. Verifique se as colunas se chamam exatamente: "Unidade" e "id_grupo"
+3. Verifique se não há caracteres especiais ou espaços extras
+4. Instale openpyxl: pip install openpyxl
+
+═══════════════════════════════════════════════════════════════
+  EXEMPLO DE ARQUIVO Unidades.xlsx
+═══════════════════════════════════════════════════════════════
+
+┌──────────┬──────────────────────────────────────┐
+│ Unidade  │ id_grupo                             │
+├──────────┼──────────────────────────────────────┤
+│ SFL      │ 120363123456789012@g.us              │
+│ REC      │ 120363987654321098@g.us              │
+│ RJN      │ 120363111222333444@g.us              │
+│ ITA      │ 120363555666777888@g.us              │
+│ BTM      │ 120363999888777666@g.us              │
+└──────────┴──────────────────────────────────────┘
+
+IMPORTANTE:
+- Os nomes das unidades devem corresponder exatamente aos nomes
+  usados na coluna "Unidade" do arquivo "Tabela de Preço.csv"
+- Os IDs dos grupos devem estar no formato correto
+- Não deixe células vazias na coluna id_grupo se quiser enviar
+
+═══════════════════════════════════════════════════════════════
+  DEPENDÊNCIAS
+═══════════════════════════════════════════════════════════════
+
+Para ler arquivos Excel, é necessário:
+pip install openpyxl
+
+O arquivo requirements.txt já foi atualizado com essa dependência.
+
+═══════════════════════════════════════════════════════════════
+  TESTE
+═══════════════════════════════════════════════════════════════
+
+1. Configure o arquivo Unidades.xlsx
+2. Execute: python main.py
+3. Observe as mensagens no terminal
+4. Verifique se os banners foram enviados para os grupos
+
+═══════════════════════════════════════════════════════════════
+  PRONTO!
+═══════════════════════════════════════════════════════════════
+
+Agora o sistema enviará automaticamente os banners para os grupos
+configurados ao terminar de gerar todos os banners de cada unidade!
+
+Buena suerte! 🚀
+

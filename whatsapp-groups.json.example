@@ -1,0 +1,21 @@
+{
+  "lastUpdate": "2025-11-10T12:00:00.000Z",
+  "count": 0,
+  "groups": [
+    {
+      "id": "120363123456789012@g.us",
+      "name": "Nome do Grupo 1",
+      "participants": 25,
+      "isGroup": true,
+      "timestamp": "2025-11-10T12:00:00.000Z"
+    },
+    {
+      "id": "120363987654321098@g.us",
+      "name": "Nome do Grupo 2",
+      "participants": 50,
+      "isGroup": true,
+      "timestamp": "2025-11-10T12:00:00.000Z"
+    }
+  ]
+}
+

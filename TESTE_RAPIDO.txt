@@ -1,0 +1,82 @@
+═══════════════════════════════════════════════════════════════
+  TESTE RÁPIDO - WHATSAPP
+═══════════════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════════════
+  EXECUÇÃO RÁPIDA (3 PASSOS)
+═══════════════════════════════════════════════════════════════
+
+1. INICIAR SERVIDOR WHATSAPP
+   start-whatsapp-server.bat
+   
+   Aguarde: ✅ Cliente WhatsApp pronto!
+
+2. EXECUTAR TESTE
+   test-whatsapp.bat
+   
+   Siga as instruções na tela
+
+3. VERIFICAR WHATSAPP
+   Verifique seu WhatsApp (5534999499430)
+   Você deve receber a imagem com legenda!
+
+═══════════════════════════════════════════════════════════════
+  CHECKLIST RÁPIDO
+═══════════════════════════════════════════════════════════════
+
+[ ] Servidor WhatsApp rodando
+[ ] QR Code escaneado
+[ ] Mensagem "✅ Cliente WhatsApp pronto!" apareceu
+[ ] Teste executado com sucesso
+[ ] Imagem recebida no WhatsApp
+[ ] Legenda com link de compra presente
+
+═══════════════════════════════════════════════════════════════
+  PROBLEMAS COMUNS
+═══════════════════════════════════════════════════════════════
+
+PROBLEMA: Servidor não conecta
+SOLUÇÃO: Execute start-whatsapp-server.bat
+
+PROBLEMA: QR Code não aparece
+SOLUÇÃO: Reinicie o servidor
+
+PROBLEMA: Imagem não enviada
+SOLUÇÃO: Verifique autenticação do WhatsApp
+
+PROBLEMA: Número errado
+SOLUÇÃO: Verifique whatsapp-sender.js
+
+═══════════════════════════════════════════════════════════════
+  TESTE MANUAL
+═══════════════════════════════════════════════════════════════
+
+Se preferir testar manualmente:
+
+import requests
+import os
+
+response = requests.post(
+    'http://localhost:3001/send-image',
+    json={
+        'imagePath': os.path.abspath('banners/10-11-2025/SFL-10-11-2025-001-09-05-57.jpg'),
+        'caption': 'Teste Manual\n\nCompre no Whatsapp - wa.me/551151944697?text=oi'
+    }
+)
+print(response.json())
+
+═══════════════════════════════════════════════════════════════
+  SUPORTE
+═══════════════════════════════════════════════════════════════
+
+Para mais detalhes, consulte:
+- GUIA_TESTE_WHATSAPP.txt - Guia completo
+- README_WHATSAPP.txt - Documentação
+
+═══════════════════════════════════════════════════════════════
+  PRONTO!
+═══════════════════════════════════════════════════════════════
+
+Após o teste bem-sucedido, os banners serão enviados
+automaticamente! 🎉
+

@@ -1,0 +1,183 @@
+═══════════════════════════════════════════════════════════════
+  INSTRUÇÕES - ENVIO PARA GRUPOS DO WHATSAPP
+═══════════════════════════════════════════════════════════════
+
+Este guia explica como listar e enviar mensagens para grupos
+do WhatsApp.
+
+═══════════════════════════════════════════════════════════════
+  PASSO 1: LISTAR GRUPOS
+═══════════════════════════════════════════════════════════════
+
+1. Certifique-se de que o servidor WhatsApp está rodando:
+   start-whatsapp-server.bat
+
+2. Execute o script para listar grupos:
+   listar-grupos.bat
+
+3. Os grupos serão salvos em: whatsapp-groups.json
+
+O arquivo JSON conterá:
+- Nome do grupo
+- ID do grupo (usado para enviar mensagens)
+- Número de participantes
+- Data da última atualização
+
+═══════════════════════════════════════════════════════════════
+  PASSO 2: ENVIAR MENSAGENS PARA GRUPOS
+═══════════════════════════════════════════════════════════════
+
+MÉTODO 1: Script Interativo
+───────────────────────────────────────────────────────────────
+1. Execute: enviar-para-grupos.bat
+
+2. O script irá:
+   - Carregar os grupos do arquivo whatsapp-groups.json
+   - Mostrar uma lista de grupos disponíveis
+   - Permitir escolher quais grupos receberão a mensagem
+   - Enviar a imagem para os grupos selecionados
+
+3. Você pode:
+   - Escolher grupos específicos (ex: 1,2,3)
+   - Enviar para todos os grupos (digite "todos")
+   - Cancelar a operação (digite "sair")
+
+───────────────────────────────────────────────────────────────
+
+MÉTODO 2: Via Código Python
+───────────────────────────────────────────────────────────────
+Você pode usar a função send_to_whatsapp_group() no main.py:
+
+from main import BannerGenerator
+
+generator = BannerGenerator()
+group_id = "120363123456789012@g.us"  # ID do grupo
+image_path = "banners/10-11-2025/banner.jpg"
+
+generator.send_to_whatsapp_group(image_path, group_id)
+
+───────────────────────────────────────────────────────────────
+
+MÉTODO 3: Via API Direta
+───────────────────────────────────────────────────────────────
+import requests
+
+response = requests.post(
+    'http://localhost:3001/send-image-to-group',
+    json={
+        'groupId': '120363123456789012@g.us',
+        'imagePath': 'C:/caminho/completo/banner.jpg',
+        'caption': 'Compre no WhatsApp - wa.me/551151944697?text=oi'
+    }
+)
+
+print(response.json())
+
+═══════════════════════════════════════════════════════════════
+  ESTRUTURA DO ARQUIVO whatsapp-groups.json
+═══════════════════════════════════════════════════════════════
+
+{
+  "lastUpdate": "2025-11-10T12:00:00.000Z",
+  "count": 2,
+  "groups": [
+    {
+      "id": "120363123456789012@g.us",
+      "name": "Nome do Grupo",
+      "participants": 25,
+      "isGroup": true,
+      "timestamp": "2025-11-10T12:00:00.000Z"
+    }
+  ]
+}
+
+═══════════════════════════════════════════════════════════════
+  COMO OBTER O ID DE UM GRUPO
+═══════════════════════════════════════════════════════════════
+
+1. Execute: listar-grupos.bat
+
+2. Os IDs serão exibidos no formato:
+   120363123456789012@g.us
+
+3. Copie o ID do grupo desejado do arquivo whatsapp-groups.json
+
+═══════════════════════════════════════════════════════════════
+  ENDPOINTS DA API
+═══════════════════════════════════════════════════════════════
+
+GET /list-groups
+   Lista todos os grupos (não salva em arquivo)
+
+GET /save-groups
+   Lista e salva grupos em whatsapp-groups.json
+
+POST /send-image-to-group
+   Envia imagem para um grupo específico
+   Body: {
+     "groupId": "120363123456789012@g.us",
+     "imagePath": "C:/caminho/banner.jpg",
+     "caption": "Legenda opcional"
+   }
+
+═══════════════════════════════════════════════════════════════
+  EXEMPLOS DE USO
+═══════════════════════════════════════════════════════════════
+
+1. LISTAR GRUPOS
+   listar-grupos.bat
+
+2. ENVIAR PARA UM GRUPO ESPECÍFICO
+   python enviar-para-grupos.py banners/10-11-2025/banner.jpg
+   (Depois escolha o grupo na lista)
+
+3. ENVIAR PARA TODOS OS GRUPOS
+   python enviar-para-grupos.py
+   (Digite "todos" quando solicitado)
+
+═══════════════════════════════════════════════════════════════
+  NOTAS IMPORTANTES
+═══════════════════════════════════════════════════════════════
+
+⚠️  Você precisa estar nos grupos para poder enviar mensagens
+⚠️  O bot precisa ter permissão para enviar mensagens no grupo
+⚠️  Alguns grupos podem ter restrições de envio
+⚠️  Atualize a lista de grupos periodicamente (novos grupos)
+
+═══════════════════════════════════════════════════════════════
+  SOLUÇÃO DE PROBLEMAS
+═══════════════════════════════════════════════════════════════
+
+PROBLEMA: "Grupos não encontrados"
+───────────────────────────────────────────────────────────────
+SOLUÇÃO:
+1. Execute listar-grupos.bat
+2. Verifique se o servidor WhatsApp está rodando
+3. Verifique se você está nos grupos no WhatsApp
+
+───────────────────────────────────────────────────────────────
+
+PROBLEMA: "Erro ao enviar para grupo"
+───────────────────────────────────────────────────────────────
+SOLUÇÃO:
+1. Verifique se o ID do grupo está correto
+2. Verifique se você tem permissão para enviar no grupo
+3. Verifique se o servidor WhatsApp está pronto
+4. Verifique os logs do servidor
+
+───────────────────────────────────────────────────────────────
+
+PROBLEMA: "Arquivo whatsapp-groups.json não encontrado"
+───────────────────────────────────────────────────────────────
+SOLUÇÃO:
+1. Execute listar-grupos.bat primeiro
+2. Isso criará o arquivo automaticamente
+
+═══════════════════════════════════════════════════════════════
+  PRONTO!
+═══════════════════════════════════════════════════════════════
+
+Agora você pode listar e enviar mensagens para grupos do WhatsApp!
+
+Buena suerte! 🚀
+

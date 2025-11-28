@@ -1,0 +1,76 @@
+Este projeto Visa enviar Banners Promocionais em um serviço de mensagem, de forma automatizada,
+
+O fluxo do projeto, seria o seguinte,
+Ler uma tabela de preços, gerar imagens através de um html, salvar a imagem em jpeg em uma pasta.
+depois abrir um serviço de mensagem na web que já existe,
+pesquisar o contato em um campo e depois anexar os arquivos de imagens gerados.
+
+Dentro da Pasta teremos um arquivo Excel chamado tabela de Preço:
+Nome do Arquivo:
+
+Campos =
+Unidade: texto "Empresa"
+Início: Data "Data de Inicio da Vigencia"
+Fim: Data
+Código: Número Inteiro "Código do Produto"
+Nome: Texto "Nome do Produto"
+Preço Comercial: Número Decimal "Preço do Produto"
+Preço Promocional: Número Decimal "Preço do Produto"
+
+Neste Arquivo identificar os 3 Itens com maior percentual de desconto:
+valor em relação ao Preço Promocional e o Preço Comercial
+
+verificar se no link abaixo: existe imagem:
+https://fdvmtz.jbs.com.br/static/erp/img/2.jpg
+
+o link é padronizado onde o código do produto é a variavel para obter a imagem do produto
+https://fdvmtz.jbs.com.br/static/erp/img/<variavel>.jpg
+
+exemplos praticos:
+https://fdvmtz.jbs.com.br/static/erp/img/3.jpg
+https://fdvmtz.jbs.com.br/static/erp/img/3.jpg
+https://fdvmtz.jbs.com.br/static/erp/img/3.jpg
+
+caso o link não tenha imagem ele retorna algo como
+{"code": 404, "name": "Not Found", "description": "The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again."}
+
+essas imagens não são png ou seja não tem fundo transparente então para ficarem legais tem que estar dentro de uma moldura com fundo branco.
+
+o tamanho do banner precisa ser de 1080x1920 px - tamanho para celular
+dentro desta pasta temos uma pasta imagens
+
+teremos as imagens
+Example: para visualizar o modelo como é esperado
+demais imagens são para uso
+
+temos as imagens,
+
+Call Action - essa imagem precisa estar presente para a chamada do cliente, é onde ele vai observar onde vai entrar para fazer a ação
+Logo - precisa estar em um canto superior direito, icone da empresa
+Fundo - é a imagem para usar no fundo 
+Logo Inferior, precisa ocupar o centro inferior abaixo,
+logo ofertas = precisa ocupar o centro superior
+Base do Produto - para ficar abaixo do produto.
+
+a Imagem do produto precisa ser capturada pelo link.
+
+Assim montar a estrutura do HTML. gerar a imagem em uma pasta para cada Unidade que existe na planilha de Tabela de Preços
+
+salvar a imagem como a identificação de unidade/data da geração exemplo DMG-04-11-2025
+
+então acessar a tela no navegador https://web.whatsapp.com/
+
+Procurar na planilha Endereço de Envio no campo Unidade:
+para cada unidade verificar no campo endereço: qual é o endereço Manipular na Web 
+pesquisar o endereço, clicar no contato referente e anexar o arquivo,
+essas etapas vamos trabalhando posteriormente, vamos criar as primeiras etapas primeiro.
+
+
+
+
+
+
+
+
+
+
