@@ -201,7 +201,15 @@ async function initializeWhatsApp() {
             ],
             ignoreHTTPSErrors: true,
             timeout: 60000,
-            defaultViewport: { width: 800, height: 600 }
+            defaultViewport: { width: 800, height: 600 },
+            // Configurações adicionais para evitar erros do Puppeteer
+            handleSIGINT: false,
+            handleSIGTERM: false,
+            handleSIGHUP: false,
+            // Reduzir uso de memória
+            protocolTimeout: 120000, // 2 minutos
+            // Ignorar erros de página
+            ignoreDefaultArgs: ['--disable-extensions']
         },
         webVersionCache: {
             type: 'remote',
@@ -236,24 +244,25 @@ async function initializeWhatsApp() {
         addLog('AUTHENTICATED', 'Autenticado com sucesso!');
     });
     
-    // Capturar erros do cliente (incluindo erros de backup)
+    // Capturar erros do cliente (incluindo erros de backup e Puppeteer)
     client.on('error', (error) => {
         // Ignorar erros relacionados a backup ZIP (não são críticos)
         if (error.message && error.message.includes('RemoteAuth.zip')) {
             addLog('WARN', 'Aviso sobre backup ZIP (não crítico): ' + error.message);
-            // Tentar criar o diretório se não existir
-            const backupDir = path.join(process.cwd(), 'whatsapp-auth-remote');
-            if (!fs.existsSync(backupDir)) {
-                try {
-                    fs.mkdirSync(backupDir, { recursive: true });
-                    addLog('INFO', 'Diretório de backup criado após erro');
-                } catch (mkdirError) {
-                    // Ignorar erro ao criar diretório
-                }
-            }
             return; // Não tratar como erro crítico
         }
+        
+        // Tratar erros do Puppeteer de forma mais suave
+        if (error.message && (error.message.includes('JSHandle') || error.message.includes('evaluate') || error.message.includes('puppeteer'))) {
+            addLog('WARN', `Aviso do Puppeteer (pode ser temporário): ${error.message}`);
+            // Não encerrar o cliente por erros do Puppeteer
+            return;
+        }
+        
         addLog('ERROR', `Erro no cliente WhatsApp: ${error.message}`);
+        if (error.stack) {
+            addLog('ERROR', `Stack: ${error.stack.split('\n').slice(0, 3).join('\n')}`);
+        }
     });
 
     client.on('auth_failure', (msg) => {
