@@ -8,7 +8,7 @@ import sys
 import json
 import threading
 import time
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 from datetime import datetime
@@ -247,6 +247,12 @@ def stop():
 def health():
     """Endpoint de health check"""
     return jsonify({'status': 'ok', 'message': 'Servidor funcionando'})
+
+@app.route('/', methods=['GET'])
+@app.route('/index.html', methods=['GET'])
+def index():
+    """Serve o template_editor.html"""
+    return send_from_directory('.', 'template_editor.html')
 
 @app.route('/preprocess-images', methods=['POST'])
 def preprocess_images():
