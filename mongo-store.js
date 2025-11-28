@@ -31,31 +31,74 @@ class MongoStore {
         }
 
         try {
+            console.log('🔍 Iniciando conexão com MongoDB...');
+            console.log(`📡 URI: ${this.uri.replace(/\/\/([^:]+):([^@]+)@/, '//$1:***@')}`);
+            console.log(`📦 Database: ${this.dbName}`);
+            console.log(`📋 Collection: ${this.collectionName}`);
+            
             // Criar cliente com opções SSL/TLS corretas para MongoDB Atlas
-            // Remover opções deprecated e usar apenas o necessário
             const clientOptions = {
                 serverApi: this.mongoOptions.serverApi,
+                // Timeouts aumentados
+                connectTimeoutMS: 60000,
+                serverSelectionTimeoutMS: 60000,
+                socketTimeoutMS: 60000,
+                // Configurações de retry
+                retryWrites: true,
+                retryReads: true,
             };
             
+            console.log('⏳ Criando cliente MongoDB...');
             this.client = new MongoClient(this.uri, clientOptions);
             
-            // Conectar com timeout
+            console.log('⏳ Tentando conectar (timeout: 60s)...');
+            const startTime = Date.now();
+            
+            // Conectar com timeout maior e mais informações
             await Promise.race([
-                this.client.connect(),
+                this.client.connect().then(() => {
+                    const elapsed = Date.now() - startTime;
+                    console.log(`✅ Cliente conectado em ${elapsed}ms`);
+                }),
                 new Promise((_, reject) => 
-                    setTimeout(() => reject(new Error('Timeout ao conectar ao MongoDB (30s)')), 30000)
+                    setTimeout(() => {
+                        const elapsed = Date.now() - startTime;
+                        reject(new Error(`Timeout ao conectar ao MongoDB após ${elapsed}ms`));
+                    }, 60000)
                 )
             ]);
             
+            console.log('⏳ Acessando database...');
             this.db = this.client.db(this.dbName);
             this.collection = this.db.collection(this.collectionName);
             
+            console.log('⏳ Criando índice...');
             // Criar índice para melhor performance
             await this.collection.createIndex({ sessionId: 1 }, { unique: true });
             
             console.log(`✅ Conectado ao MongoDB: ${this.dbName}/${this.collectionName}`);
+            
+            // Testar conexão com ping
+            console.log('⏳ Testando conexão (ping)...');
+            await this.db.admin().command({ ping: 1 });
+            console.log('✅ Ping bem-sucedido!');
+            
         } catch (error) {
-            console.error('❌ Erro ao conectar ao MongoDB:', error.message);
+            console.error('❌ Erro ao conectar ao MongoDB:');
+            console.error(`   Tipo: ${error.constructor.name}`);
+            console.error(`   Mensagem: ${error.message}`);
+            if (error.code) {
+                console.error(`   Código: ${error.code}`);
+            }
+            if (error.cause) {
+                console.error(`   Causa: ${error.cause.message || error.cause}`);
+            }
+            
+            // Informações adicionais para diagnóstico
+            console.error('📋 Informações de diagnóstico:');
+            console.error(`   URI configurada: ${this.uri ? 'Sim' : 'Não'}`);
+            console.error(`   URI começa com mongodb+srv: ${this.uri.startsWith('mongodb+srv://')}`);
+            
             if (this.client) {
                 try {
                     await this.client.close();
