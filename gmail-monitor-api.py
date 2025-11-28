@@ -45,8 +45,8 @@ def handle_exception(e):
     }), 500
 
 # Configurações
-WHATSAPP_API_URL = 'http://localhost:3001'
-GMAIL_MONITOR_PORT = 5001  # Porta do servidor Gmail Monitor
+WHATSAPP_API_URL = os.environ.get('WHATSAPP_API_URL', 'http://localhost:3001')
+GMAIL_MONITOR_PORT = 5001  # Porta padrão (será sobrescrita por PORT em produção)
 CHECK_INTERVAL = 60  # 1 minuto em segundos
 
 # Configurações de Simulação Humana (mesmas do Mensager)
@@ -1410,13 +1410,18 @@ def auto_connect_and_start():
     print("="*60 + "\n")
 
 if __name__ == '__main__':
+    # Configuração para produção vs desenvolvimento
+    port = int(os.environ.get('PORT', GMAIL_MONITOR_PORT))
+    debug = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
+    host = '0.0.0.0' if not debug else '127.0.0.1'
+    
     print("🚀 Iniciando servidor Gmail Monitor API...")
-    print(f"📧 Porta: {GMAIL_MONITOR_PORT}")
+    print(f"📧 Porta: {port}")
     print(f"📱 WhatsApp API: {WHATSAPP_API_URL}")
-    print(f"🌐 URL: http://localhost:{GMAIL_MONITOR_PORT}")
+    print(f"🌐 URL: http://{host}:{port}")
     
     # Tentar conectar automaticamente e iniciar monitoramento
     auto_connect_and_start()
     
-    app.run(host='0.0.0.0', port=GMAIL_MONITOR_PORT, debug=True)
+    app.run(host=host, port=port, debug=debug)
 
