@@ -99,11 +99,17 @@ async function stopWhatsAppClient() {
 
 // Inicializar cliente WhatsApp
 async function initializeWhatsApp() {
+    console.log('\n🔍 [DEBUG] initializeWhatsApp() chamada');
+    console.log(`   client existe: ${!!client}`);
+    console.log(`   serverRunning: ${serverRunning}`);
+    
     if (client) {
         addLog('INFO', 'Cliente WhatsApp já está inicializado.');
+        console.log('⚠️ [DEBUG] Cliente já existe, retornando...');
         return;
     }
     
+    console.log('✅ [DEBUG] Iniciando novo cliente...');
     addLog('INFO', 'Inicializando cliente WhatsApp...');
     serverRunning = true;
     isReady = false;
@@ -1727,10 +1733,28 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 // Inicializar WhatsApp
+console.log('\n═══════════════════════════════════════════════════════════');
+console.log('🚀 INICIANDO SERVIDOR WHATSAPP');
+console.log('═══════════════════════════════════════════════════════════\n');
+
 try {
-    initializeWhatsApp();
+    console.log('📋 Verificando configurações...');
+    console.log(`   MongoDB URI: ${MONGODB_URI ? 'Configurado' : 'Não configurado'}`);
+    console.log(`   MongoDB DB: ${MONGODB_DB_NAME}`);
+    console.log(`   RemoteAuth: ${USE_REMOTE_AUTH ? 'Sim' : 'Não'}`);
+    console.log(`   WhatsApp Number: ${WHATSAPP_NUMBER}\n`);
+    
+    console.log('🔄 Chamando initializeWhatsApp()...');
+    initializeWhatsApp().then(() => {
+        console.log('✅ initializeWhatsApp() concluído com sucesso');
+    }).catch((err) => {
+        console.error('\n❌❌❌ ERRO AO INICIALIZAR WHATSAPP (Promise) ❌❌❌\n');
+        console.error('Erro:', err.message);
+        console.error('Stack:', err.stack);
+        console.error('\n═══════════════════════════════════════════════════════════\n');
+    });
 } catch (err) {
-    console.error('\n❌❌❌ ERRO AO INICIALIZAR WHATSAPP ❌❌❌\n');
+    console.error('\n❌❌❌ ERRO AO INICIALIZAR WHATSAPP (Sync) ❌❌❌\n');
     console.error('Erro:', err.message);
     console.error('Stack:', err.stack);
     console.error('\n═══════════════════════════════════════════════════════════\n');
