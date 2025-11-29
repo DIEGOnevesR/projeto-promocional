@@ -168,6 +168,10 @@ async function initializeWhatsApp() {
         });
     }
     
+    console.log('🔧 [DEBUG] Criando instância do Client...');
+    console.log(`   authStrategy: ${authStrategy ? 'Configurado' : 'Não configurado'}`);
+    console.log(`   authStrategy type: ${authStrategy?.constructor?.name || 'N/A'}`);
+    
     client = new Client({
         authStrategy: authStrategy,
         puppeteer: {
@@ -222,6 +226,9 @@ async function initializeWhatsApp() {
             remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54-beta.html',
         }
     });
+    
+    console.log('✅ [DEBUG] Client criado com sucesso');
+    console.log(`   client existe: ${!!client}`);
 
     let reconnectAttempts = 0;
     const maxReconnectAttempts = 5;
@@ -307,27 +314,64 @@ async function initializeWhatsApp() {
     // client.on('message', ...) // mantido desativado para reduzir uso de CPU
 
     // Inicializar cliente com tratamento de erro melhorado
+    console.log('🔄 [DEBUG] Preparando para chamar client.initialize()...');
+    addLog('INFO', 'Inicializando cliente WhatsApp...');
+    
     try {
-        addLog('INFO', 'Inicializando cliente WhatsApp...');
-        client.initialize().catch((initError) => {
+        console.log('🚀 [DEBUG] Chamando client.initialize()...');
+        const initPromise = client.initialize();
+        console.log('✅ [DEBUG] client.initialize() retornou Promise');
+        
+        // Aguardar a inicialização e tratar erros
+        initPromise.then(() => {
+            console.log('✅ [DEBUG] client.initialize() concluído com sucesso');
+            addLog('INFO', 'Cliente WhatsApp inicializado com sucesso');
+        }).catch((initError) => {
+            console.error('❌ [DEBUG] Erro na Promise de client.initialize():', initError.message);
+            console.error('❌ [DEBUG] Stack:', initError.stack);
+            
             // Se o erro for relacionado ao RemoteAuth.zip, tentar continuar
             if (initError.message && initError.message.includes('RemoteAuth.zip')) {
                 addLog('WARN', 'Erro do RemoteAuth.zip durante inicialização (não crítico). Continuando...');
+                console.log('⚠️ [DEBUG] Erro do RemoteAuth.zip ignorado');
                 // Não encerrar o cliente por esse erro
                 return;
             }
+            
             addLog('ERROR', `Erro ao inicializar cliente WhatsApp: ${initError.message}`);
             if (initError.stack) {
-                addLog('ERROR', `Stack: ${initError.stack.split('\n').slice(0, 3).join('\n')}`);
+                addLog('ERROR', `Stack: ${initError.stack.split('\n').slice(0, 5).join('\n')}`);
             }
+            
+            // Tentar reinicializar após um delay
+            console.log('🔄 [DEBUG] Tentando reinicializar após 5 segundos...');
+            setTimeout(() => {
+                console.log('🔄 [DEBUG] Reinicializando cliente...');
+                try {
+                    client.initialize().catch((retryError) => {
+                        console.error('❌ [DEBUG] Erro na reinicialização:', retryError.message);
+                        addLog('ERROR', `Erro na reinicialização: ${retryError.message}`);
+                    });
+                } catch (retryErr) {
+                    console.error('❌ [DEBUG] Erro ao tentar reinicializar:', retryErr.message);
+                    addLog('ERROR', `Erro ao tentar reinicializar: ${retryErr.message}`);
+                }
+            }, 5000);
         });
+        
+        console.log('✅ [DEBUG] Promise de inicialização configurada');
     } catch (error) {
+        console.error('❌ [DEBUG] Erro síncrono ao inicializar:', error.message);
+        console.error('❌ [DEBUG] Stack:', error.stack);
+        
         // Se o erro for relacionado ao RemoteAuth.zip, tentar continuar
         if (error.message && error.message.includes('RemoteAuth.zip')) {
             addLog('WARN', 'Erro do RemoteAuth.zip durante inicialização (não crítico). Continuando...');
+            console.log('⚠️ [DEBUG] Erro do RemoteAuth.zip ignorado (sync)');
             // Não encerrar o cliente por esse erro
         } else {
             addLog('ERROR', `Erro ao inicializar cliente WhatsApp: ${error.message}`);
+            console.error('❌ [DEBUG] Erro crítico, limpando cliente');
             client = null;
             serverRunning = false;
             isReady = false;
@@ -335,6 +379,8 @@ async function initializeWhatsApp() {
             throw error;
         }
     }
+    
+    console.log('✅ [DEBUG] initializeWhatsApp() concluída (retornando)');
 }
 
 // Endpoint para enviar imagem
