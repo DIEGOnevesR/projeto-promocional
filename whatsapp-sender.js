@@ -1,11 +1,26 @@
+// Log inicial para confirmar que o código está sendo executado
+console.log('\n═══════════════════════════════════════════════════════════');
+console.log('📦 CARREGANDO MÓDULOS...');
+console.log('═══════════════════════════════════════════════════════════\n');
+
 const { Client, LocalAuth, RemoteAuth, MessageMedia } = require('whatsapp-web.js');
+console.log('✅ whatsapp-web.js carregado');
+
 const MongoStore = require('./mongo-store');
+console.log('✅ mongo-store carregado');
+
 const qrcode = require('qrcode-terminal');
+console.log('✅ qrcode-terminal carregado');
+
 const express = require('express');
+console.log('✅ express carregado');
+
 const fs = require('fs');
 const path = require('path');
+console.log('✅ fs e path carregados\n');
 
 const app = express();
+console.log('✅ Express app criado\n');
 
 // Configurar CORS para permitir requisições do frontend
 app.use((req, res, next) => {
@@ -1783,76 +1798,62 @@ console.log('\n═════════════════════�
 console.log('🚀 INICIANDO SERVIDOR WHATSAPP');
 console.log('═══════════════════════════════════════════════════════════\n');
 
-try {
-    console.log('📋 Verificando configurações...');
-    console.log(`   MongoDB URI: ${MONGODB_URI ? 'Configurado' : 'Não configurado'}`);
-    console.log(`   MongoDB DB: ${MONGODB_DB_NAME}`);
-    console.log(`   RemoteAuth: ${USE_REMOTE_AUTH ? 'Sim' : 'Não'}`);
-    console.log(`   WhatsApp Number: ${WHATSAPP_NUMBER}\n`);
-    
-    console.log('🔄 Chamando initializeWhatsApp()...');
-    initializeWhatsApp().then(() => {
+// Função assíncrona para inicializar tudo
+async function startServer() {
+    try {
+        console.log('📋 Verificando configurações...');
+        console.log(`   MongoDB URI: ${MONGODB_URI ? 'Configurado' : 'Não configurado'}`);
+        console.log(`   MongoDB DB: ${MONGODB_DB_NAME}`);
+        console.log(`   RemoteAuth: ${USE_REMOTE_AUTH ? 'Sim' : 'Não'}`);
+        console.log(`   WhatsApp Number: ${WHATSAPP_NUMBER}\n`);
+        
+        console.log('🔄 Chamando initializeWhatsApp()...');
+        await initializeWhatsApp();
         console.log('✅ initializeWhatsApp() concluído com sucesso');
-    }).catch((err) => {
-        console.error('\n❌❌❌ ERRO AO INICIALIZAR WHATSAPP (Promise) ❌❌❌\n');
+        
+        // Iniciar servidor HTTP após inicializar WhatsApp
+        const PORT = process.env.PORT || 3001;
+        const server = app.listen(PORT, () => {
+            console.log(`🌐 Servidor WhatsApp rodando na porta ${PORT}`);
+            console.log(`📱 Aguardando autenticação do WhatsApp...`);
+            console.log(`📞 Número de destino: ${WHATSAPP_NUMBER}`);
+            console.log(`🔗 Link de compra: ${WHATSAPP_LINK}`);
+            console.log(`\n💡 Acesse http://localhost:${PORT}/health para verificar o status\n`);
+            addLog('INFO', `Servidor HTTP iniciado na porta ${PORT}.`);
+        });
+        
+        server.on('error', (err) => {
+            if (err.code === 'EADDRINUSE') {
+                console.error(`\n❌❌❌ ERRO: Porta ${PORT} já está em uso! ❌❌❌\n`);
+                console.log(`═══════════════════════════════════════════════════════════`);
+                console.log(`  SOLUÇÃO RÁPIDA:`);
+                console.log(`  Execute: lsof -ti:${PORT} | xargs kill -9`);
+                console.log(`  Ou altere a porta no arquivo .env\n`);
+            } else {
+                console.error(`\n❌❌❌ ERRO NO SERVIDOR ❌❌❌\n`);
+                console.error('Erro:', err.message);
+                console.error('Stack:', err.stack);
+            }
+            process.exit(1);
+        });
+        
+    } catch (err) {
+        console.error('\n❌❌❌ ERRO AO INICIALIZAR WHATSAPP ❌❌❌\n');
         console.error('Erro:', err.message);
         console.error('Stack:', err.stack);
         console.error('\n═══════════════════════════════════════════════════════════\n');
-    });
-} catch (err) {
-    console.error('\n❌❌❌ ERRO AO INICIALIZAR WHATSAPP (Sync) ❌❌❌\n');
+        console.log('Verifique se todas as dependências estão instaladas:');
+        console.log('  npm install\n');
+        process.exit(1);
+    }
+}
+
+// Iniciar o servidor
+startServer().catch((err) => {
+    console.error('\n❌❌❌ ERRO CRÍTICO AO INICIAR SERVIDOR ❌❌❌\n');
     console.error('Erro:', err.message);
     console.error('Stack:', err.stack);
-    console.error('\n═══════════════════════════════════════════════════════════\n');
-    console.log('Verifique se todas as dependências estão instaladas:');
-    console.log('  npm install\n');
     process.exit(1);
-}
-
-// Iniciar servidor
-const PORT = process.env.PORT || 3001;
-
-try {
-    const server = app.listen(PORT, () => {
-        console.log(`🌐 Servidor WhatsApp rodando na porta ${PORT}`);
-        console.log(`📱 Aguardando autenticação do WhatsApp...`);
-        console.log(`📞 Número de destino: ${WHATSAPP_NUMBER}`);
-        console.log(`🔗 Link de compra: ${WHATSAPP_LINK}`);
-        console.log(`\n💡 Acesse http://localhost:${PORT}/health para verificar o status\n`);
-        addLog('INFO', `Servidor HTTP iniciado na porta ${PORT}.`);
-    });
-
-    server.on('error', (err) => {
-        if (err.code === 'EADDRINUSE') {
-            console.error(`\n❌❌❌ ERRO: Porta ${PORT} já está em uso! ❌❌❌\n`);
-            console.log(`═══════════════════════════════════════════════════════════`);
-            console.log(`  SOLUÇÃO RÁPIDA:`);
-            console.log(`═══════════════════════════════════════════════════════════\n`);
-            console.log(`1. Execute: liberar-porta-3001.bat`);
-            console.log(`   (Este script irá finalizar processos usando a porta 3001)\n`);
-            console.log(`2. OU feche a janela do servidor WhatsApp anterior`);
-            console.log(`   (Procure por janelas com "Servidor Flask" ou "WhatsApp")\n`);
-            console.log(`3. OU execute no terminal:`);
-            console.log(`   netstat -ano | findstr :3001`);
-            console.log(`   taskkill /F /PID [NUMERO_DO_PID]\n`);
-            console.log(`═══════════════════════════════════════════════════════════\n`);
-            console.log(`⚠️  O servidor não pode iniciar enquanto a porta estiver em uso.\n`);
-            console.log(`Aguardando 10 segundos antes de fechar...\n`);
-            setTimeout(() => process.exit(1), 10000);
-        } else {
-            console.error(`\n❌ Erro ao iniciar servidor: ${err.message}\n`);
-            console.error(`Stack: ${err.stack}\n`);
-            console.log(`Aguardando 10 segundos antes de fechar...\n`);
-            setTimeout(() => process.exit(1), 10000);
-        }
-    });
-} catch (err) {
-    console.error('\n❌❌❌ ERRO AO CRIAR SERVIDOR ❌❌❌\n');
-    console.error('Erro:', err.message);
-    console.error('Stack:', err.stack);
-    console.error('\n═══════════════════════════════════════════════════════════\n');
-    console.log('Aguardando 10 segundos antes de fechar...\n');
-    setTimeout(() => process.exit(1), 10000);
-}
+});
 
 
