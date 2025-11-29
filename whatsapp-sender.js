@@ -1,32 +1,39 @@
 // ============================================================================
-// LOG INICIAL - DEVE APARECER PRIMEIRO NOS LOGS DO RENDER
+// WRAPPER GLOBAL PARA CAPTURAR TODOS OS ERROS
 // ============================================================================
-// Este é o primeiro log que deve aparecer quando o arquivo é executado
-// Se este log não aparecer, significa que o arquivo não está sendo executado
-process.stdout.write('\n');
-process.stdout.write('═══════════════════════════════════════════════════════════\n');
-process.stdout.write('🚀 ARQUIVO whatsapp-sender.js INICIADO\n');
-process.stdout.write('═══════════════════════════════════════════════════════════\n');
-process.stdout.write(`Timestamp: ${new Date().toISOString()}\n`);
-process.stdout.write(`Node version: ${process.version}\n`);
-process.stdout.write(`Working directory: ${process.cwd()}\n`);
-process.stdout.write(`Process ID: ${process.pid}\n`);
-process.stdout.write('═══════════════════════════════════════════════════════════\n');
-process.stdout.write('📦 CARREGANDO MÓDULOS...\n');
-process.stdout.write('═══════════════════════════════════════════════════════════\n');
-process.stdout.write('\n');
-
-// Também usar console.log para garantir que apareça
-console.log('\n═══════════════════════════════════════════════════════════');
-console.log('🚀 ARQUIVO whatsapp-sender.js INICIADO');
-console.log('═══════════════════════════════════════════════════════════');
-console.log(`Timestamp: ${new Date().toISOString()}`);
-console.log(`Node version: ${process.version}`);
-console.log(`Working directory: ${process.cwd()}`);
-console.log(`Process ID: ${process.pid}`);
-console.log('═══════════════════════════════════════════════════════════');
-console.log('📦 CARREGANDO MÓDULOS...');
-console.log('═══════════════════════════════════════════════════════════\n');
+(function() {
+    'use strict';
+    
+    // Log inicial - DEVE aparecer primeiro
+    try {
+        process.stdout.write('\n');
+        process.stdout.write('═══════════════════════════════════════════════════════════\n');
+        process.stdout.write('🚀 ARQUIVO whatsapp-sender.js INICIADO\n');
+        process.stdout.write('═══════════════════════════════════════════════════════════\n');
+        process.stdout.write(`Timestamp: ${new Date().toISOString()}\n`);
+        process.stdout.write(`Node version: ${process.version}\n`);
+        process.stdout.write(`Working directory: ${process.cwd()}\n`);
+        process.stdout.write(`Process ID: ${process.pid}\n`);
+        process.stdout.write('═══════════════════════════════════════════════════════════\n');
+        process.stdout.write('📦 CARREGANDO MÓDULOS...\n');
+        process.stdout.write('═══════════════════════════════════════════════════════════\n');
+        process.stdout.write('\n');
+        
+        console.log('\n═══════════════════════════════════════════════════════════');
+        console.log('🚀 ARQUIVO whatsapp-sender.js INICIADO');
+        console.log('═══════════════════════════════════════════════════════════');
+        console.log(`Timestamp: ${new Date().toISOString()}`);
+        console.log(`Node version: ${process.version}`);
+        console.log(`Working directory: ${process.cwd()}`);
+        console.log(`Process ID: ${process.pid}`);
+        console.log('═══════════════════════════════════════════════════════════');
+        console.log('📦 CARREGANDO MÓDULOS...');
+        console.log('═══════════════════════════════════════════════════════════\n');
+    } catch (logErr) {
+        // Se até o log falhar, tentar escrever diretamente
+        process.stderr.write('ERRO CRÍTICO: Não foi possível escrever logs iniciais\n');
+        process.stderr.write(`Erro: ${logErr.message}\n`);
+    }
 
 let Client, LocalAuth, RemoteAuth, MessageMedia;
 let MongoStore;
@@ -1954,4 +1961,11 @@ try {
     process.exit(1);
 }
 
-
+// Fechar o wrapper global (se foi aberto)
+if (typeof module !== 'undefined' && module.exports) {
+    // Código executado como módulo
+    console.log('✅ Código carregado como módulo');
+} else {
+    // Código executado diretamente
+    console.log('✅ Código executado diretamente');
+}
