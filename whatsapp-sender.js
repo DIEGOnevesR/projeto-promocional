@@ -1,7 +1,12 @@
 // Log inicial para confirmar que o código está sendo executado
-console.log('\n═══════════════════════════════════════════════════════════');
+// IMPORTANTE: Este log deve aparecer PRIMEIRO nos logs do Render
+process.stdout.write('\n');
+process.stdout.write('═══════════════════════════════════════════════════════════\n');
+process.stdout.write('📦 CARREGANDO MÓDULOS...\n');
+process.stdout.write('═══════════════════════════════════════════════════════════\n');
+process.stdout.write('\n');
 console.log('📦 CARREGANDO MÓDULOS...');
-console.log('═══════════════════════════════════════════════════════════\n');
+console.log('═══════════════════════════════════════════════════════════');
 
 let Client, LocalAuth, RemoteAuth, MessageMedia;
 let MongoStore;
@@ -1847,25 +1852,57 @@ process.on('unhandledRejection', (reason, promise) => {
 const PORT = process.env.PORT || 3001;
 
 try {
+    // Log imediato antes de iniciar o servidor
+    console.log('🔧 Preparando para iniciar servidor HTTP...');
+    console.log(`   Porta: ${PORT}`);
+    console.log(`   Process ID: ${process.pid}`);
+    console.log(`   Node version: ${process.version}`);
+    console.log(`   Working directory: ${process.cwd()}\n`);
+    
     const server = app.listen(PORT, () => {
+        // Logs imediatos e forçados
+        process.stdout.write(`🌐 Servidor HTTP iniciado na porta ${PORT}\n`);
         console.log(`🌐 Servidor HTTP iniciado na porta ${PORT}`);
         addLog('INFO', `Servidor HTTP iniciado na porta ${PORT}.`);
         
         // Inicializar WhatsApp em background após servidor HTTP estar rodando
+        process.stdout.write('\n');
+        process.stdout.write('═══════════════════════════════════════════════════════════\n');
+        process.stdout.write('🚀 INICIANDO WHATSAPP\n');
+        process.stdout.write('═══════════════════════════════════════════════════════════\n');
+        process.stdout.write('\n');
+        
         console.log('\n═══════════════════════════════════════════════════════════');
         console.log('🚀 INICIANDO WHATSAPP');
         console.log('═══════════════════════════════════════════════════════════\n');
         
         console.log('📋 Verificando configurações...');
-        console.log(`   MongoDB URI: ${MONGODB_URI ? 'Configurado' : 'Não configurado'}`);
+        console.log(`   MongoDB URI: ${MONGODB_URI ? 'Configurado (' + MONGODB_URI.substring(0, 20) + '...)' : 'Não configurado'}`);
         console.log(`   MongoDB DB: ${MONGODB_DB_NAME}`);
         console.log(`   RemoteAuth: ${USE_REMOTE_AUTH ? 'Sim' : 'Não'}`);
-        console.log(`   WhatsApp Number: ${WHATSAPP_NUMBER}\n`);
+        console.log(`   WhatsApp Number: ${WHATSAPP_NUMBER}`);
+        console.log(`   MongoStore disponível: ${MongoStore ? 'Sim' : 'Não'}\n`);
         
         console.log('🔄 Chamando initializeWhatsApp()...');
+        process.stdout.write('🔄 Chamando initializeWhatsApp()...\n');
+        
+        // Garantir que a função existe
+        if (typeof initializeWhatsApp !== 'function') {
+            console.error('❌ ERRO: initializeWhatsApp não é uma função!');
+            console.error('   Tipo:', typeof initializeWhatsApp);
+            return;
+        }
+        
         initializeWhatsApp().then(() => {
+            process.stdout.write('✅ initializeWhatsApp() concluído com sucesso\n');
             console.log('✅ initializeWhatsApp() concluído com sucesso');
         }).catch((err) => {
+            process.stdout.write('\n');
+            process.stdout.write('❌❌❌ ERRO AO INICIALIZAR WHATSAPP (Promise) ❌❌❌\n');
+            process.stdout.write(`Erro: ${err.message}\n`);
+            process.stdout.write(`Stack: ${err.stack}\n`);
+            process.stdout.write('\n');
+            
             console.error('\n❌❌❌ ERRO AO INICIALIZAR WHATSAPP (Promise) ❌❌❌\n');
             console.error('Erro:', err.message);
             console.error('Stack:', err.stack);
