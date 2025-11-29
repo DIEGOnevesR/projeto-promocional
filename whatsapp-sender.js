@@ -413,10 +413,14 @@ async function initializeWhatsApp() {
         console.log('✅ [DEBUG] client.initialize() retornou Promise');
         
         // Aguardar a inicialização e tratar erros
+        console.log('⏳ [DEBUG] Aguardando resolução da Promise de client.initialize()...');
         initPromise.then(() => {
             console.log('✅ [DEBUG] client.initialize() concluído com sucesso');
             addLog('INFO', 'Cliente WhatsApp inicializado com sucesso');
+            console.log('✅ [DEBUG] Promise resolvida - cliente deve estar pronto ou aguardando QR');
         }).catch((initError) => {
+            console.error('❌ [DEBUG] Promise REJEITADA - Erro na Promise de client.initialize():', initError.message);
+            console.error('❌ [DEBUG] Stack completo:', initError.stack);
             console.error('❌ [DEBUG] Erro na Promise de client.initialize():', initError.message);
             console.error('❌ [DEBUG] Stack:', initError.stack);
             
