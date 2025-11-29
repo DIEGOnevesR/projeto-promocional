@@ -3,24 +3,74 @@ console.log('\n═════════════════════�
 console.log('📦 CARREGANDO MÓDULOS...');
 console.log('═══════════════════════════════════════════════════════════\n');
 
-const { Client, LocalAuth, RemoteAuth, MessageMedia } = require('whatsapp-web.js');
-console.log('✅ whatsapp-web.js carregado');
+let Client, LocalAuth, RemoteAuth, MessageMedia;
+let MongoStore;
+let qrcode;
+let express;
+let fs, path;
+let app;
 
-const MongoStore = require('./mongo-store');
-console.log('✅ mongo-store carregado');
+try {
+    console.log('🔄 Carregando whatsapp-web.js...');
+    ({ Client, LocalAuth, RemoteAuth, MessageMedia } = require('whatsapp-web.js'));
+    console.log('✅ whatsapp-web.js carregado');
+} catch (err) {
+    console.error('❌ ERRO ao carregar whatsapp-web.js:', err.message);
+    console.error('Stack:', err.stack);
+    process.exit(1);
+}
 
-const qrcode = require('qrcode-terminal');
-console.log('✅ qrcode-terminal carregado');
+try {
+    console.log('🔄 Carregando mongo-store...');
+    MongoStore = require('./mongo-store');
+    console.log('✅ mongo-store carregado');
+} catch (err) {
+    console.error('❌ ERRO ao carregar mongo-store:', err.message);
+    console.error('Stack:', err.stack);
+    console.log('⚠️ Continuando sem mongo-store (usará LocalAuth)...');
+    MongoStore = null;
+}
 
-const express = require('express');
-console.log('✅ express carregado');
+try {
+    console.log('🔄 Carregando qrcode-terminal...');
+    qrcode = require('qrcode-terminal');
+    console.log('✅ qrcode-terminal carregado');
+} catch (err) {
+    console.error('❌ ERRO ao carregar qrcode-terminal:', err.message);
+    console.error('Stack:', err.stack);
+    process.exit(1);
+}
 
-const fs = require('fs');
-const path = require('path');
-console.log('✅ fs e path carregados\n');
+try {
+    console.log('🔄 Carregando express...');
+    express = require('express');
+    console.log('✅ express carregado');
+} catch (err) {
+    console.error('❌ ERRO ao carregar express:', err.message);
+    console.error('Stack:', err.stack);
+    process.exit(1);
+}
 
-const app = express();
-console.log('✅ Express app criado\n');
+try {
+    console.log('🔄 Carregando fs e path...');
+    fs = require('fs');
+    path = require('path');
+    console.log('✅ fs e path carregados\n');
+} catch (err) {
+    console.error('❌ ERRO ao carregar fs/path:', err.message);
+    console.error('Stack:', err.stack);
+    process.exit(1);
+}
+
+try {
+    console.log('🔄 Criando Express app...');
+    app = express();
+    console.log('✅ Express app criado\n');
+} catch (err) {
+    console.error('❌ ERRO ao criar Express app:', err.message);
+    console.error('Stack:', err.stack);
+    process.exit(1);
+}
 
 // Configurar CORS para permitir requisições do frontend
 app.use((req, res, next) => {
