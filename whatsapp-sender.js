@@ -1,12 +1,32 @@
-// Log inicial para confirmar que o código está sendo executado
-// IMPORTANTE: Este log deve aparecer PRIMEIRO nos logs do Render
+// ============================================================================
+// LOG INICIAL - DEVE APARECER PRIMEIRO NOS LOGS DO RENDER
+// ============================================================================
+// Este é o primeiro log que deve aparecer quando o arquivo é executado
+// Se este log não aparecer, significa que o arquivo não está sendo executado
 process.stdout.write('\n');
+process.stdout.write('═══════════════════════════════════════════════════════════\n');
+process.stdout.write('🚀 ARQUIVO whatsapp-sender.js INICIADO\n');
+process.stdout.write('═══════════════════════════════════════════════════════════\n');
+process.stdout.write(`Timestamp: ${new Date().toISOString()}\n`);
+process.stdout.write(`Node version: ${process.version}\n`);
+process.stdout.write(`Working directory: ${process.cwd()}\n`);
+process.stdout.write(`Process ID: ${process.pid}\n`);
 process.stdout.write('═══════════════════════════════════════════════════════════\n');
 process.stdout.write('📦 CARREGANDO MÓDULOS...\n');
 process.stdout.write('═══════════════════════════════════════════════════════════\n');
 process.stdout.write('\n');
-console.log('📦 CARREGANDO MÓDULOS...');
+
+// Também usar console.log para garantir que apareça
+console.log('\n═══════════════════════════════════════════════════════════');
+console.log('🚀 ARQUIVO whatsapp-sender.js INICIADO');
 console.log('═══════════════════════════════════════════════════════════');
+console.log(`Timestamp: ${new Date().toISOString()}`);
+console.log(`Node version: ${process.version}`);
+console.log(`Working directory: ${process.cwd()}`);
+console.log(`Process ID: ${process.pid}`);
+console.log('═══════════════════════════════════════════════════════════');
+console.log('📦 CARREGANDO MÓDULOS...');
+console.log('═══════════════════════════════════════════════════════════\n');
 
 let Client, LocalAuth, RemoteAuth, MessageMedia;
 let MongoStore;
