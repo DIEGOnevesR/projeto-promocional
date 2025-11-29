@@ -1961,11 +1961,5 @@ try {
     process.exit(1);
 }
 
-// Fechar o wrapper global (se foi aberto)
-if (typeof module !== 'undefined' && module.exports) {
-    // Código executado como módulo
-    console.log('✅ Código carregado como módulo');
-} else {
-    // Código executado diretamente
-    console.log('✅ Código executado diretamente');
-}
+// Fechar o wrapper global
+})();
