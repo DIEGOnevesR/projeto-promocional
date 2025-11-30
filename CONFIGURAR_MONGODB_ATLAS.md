@@ -137,3 +137,7 @@ mongodb+srv://lgp350diego_db_user:MinhaSenh@123@cluster0.xsjcl7s.mongodb.net/?ap
 
 **Dúvidas?** Consulte os logs no Render para mais detalhes.
 
+
+
+
+

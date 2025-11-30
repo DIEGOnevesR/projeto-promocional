@@ -123,3 +123,6 @@ node -e "const {MongoClient}=require('mongodb');(async()=>{const c=new MongoClie
 
 **Me diga o resultado do teste local para identificarmos exatamente o problema!**
 
+
+
+
