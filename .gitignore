@@ -45,8 +45,6 @@ Thumbs.db
 token.json
 credentials.json
 whatsapp-auth/
-whatsapp-auth-remote/
-RemoteAuth.zip
 *.db
 *.log
 cache_imagens_processadas/

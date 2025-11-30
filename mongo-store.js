@@ -1,164 +1,181 @@
-/**
- * MongoDB Store para RemoteAuth do whatsapp-web.js
- */
 const { MongoClient, ServerApiVersion } = require('mongodb');
 
 class MongoStore {
-    constructor(options = {}) {
+    constructor(options) {
+        this.uri = options.uri;
         this.dbName = options.dbName || 'whatsapp-sessions';
-        this.collectionName = options.collectionName || 'sessions';
-        this.uri = options.uri || process.env.MONGODB_URI || process.env.MONGO_URI || 'mongodb://localhost:27017';
+        this.collectionName = options.collectionName || 'whatsapp_sessions';
         this.client = null;
         this.db = null;
         this.collection = null;
-        
-        // Configurar opções do MongoDB (compatível com MongoDB Atlas)
-        this.mongoOptions = {
-            serverApi: {
-                version: ServerApiVersion.v1,
-                strict: true,
-                deprecationErrors: true,
-            },
-            tls: true,
-            tlsAllowInvalidCertificates: false,
-            ...options.mongoOptions
-        };
     }
 
     async connect() {
-        if (this.client && this.client.topology && this.client.topology.isConnected()) {
+        if (this.client) {
             return;
         }
 
+        console.log('[MongoStore] Conectando ao MongoDB...');
+        console.log(`[MongoStore] URI: ${this.uri.substring(0, 30)}...`);
+        console.log(`[MongoStore] Database: ${this.dbName}`);
+        console.log(`[MongoStore] Collection: ${this.collectionName}`);
+
         try {
-            console.log('🔍 Iniciando conexão com MongoDB...');
-            console.log(`📡 URI: ${this.uri.replace(/\/\/([^:]+):([^@]+)@/, '//$1:***@')}`);
-            console.log(`📦 Database: ${this.dbName}`);
-            console.log(`📋 Collection: ${this.collectionName}`);
-            
-            // Criar cliente com opções SSL/TLS corretas para MongoDB Atlas
-            const clientOptions = {
-                serverApi: this.mongoOptions.serverApi,
-                // Timeouts aumentados
+            this.client = new MongoClient(this.uri, {
+                serverApi: {
+                    version: ServerApiVersion.v1,
+                    strict: true,
+                    deprecationErrors: true,
+                },
                 connectTimeoutMS: 60000,
                 serverSelectionTimeoutMS: 60000,
                 socketTimeoutMS: 60000,
-                // Configurações de retry
                 retryWrites: true,
                 retryReads: true,
-            };
-            
-            console.log('⏳ Criando cliente MongoDB...');
-            this.client = new MongoClient(this.uri, clientOptions);
-            
-            console.log('⏳ Tentando conectar (timeout: 60s)...');
-            const startTime = Date.now();
-            
-            // Conectar com timeout maior e mais informações
-            await Promise.race([
-                this.client.connect().then(() => {
-                    const elapsed = Date.now() - startTime;
-                    console.log(`✅ Cliente conectado em ${elapsed}ms`);
-                }),
-                new Promise((_, reject) => 
-                    setTimeout(() => {
-                        const elapsed = Date.now() - startTime;
-                        reject(new Error(`Timeout ao conectar ao MongoDB após ${elapsed}ms`));
-                    }, 60000)
-                )
-            ]);
-            
-            console.log('⏳ Acessando database...');
+            });
+
+            await this.client.connect();
+            console.log('[MongoStore] ✅ Conectado ao MongoDB');
+
             this.db = this.client.db(this.dbName);
             this.collection = this.db.collection(this.collectionName);
-            
-            console.log('⏳ Criando índice...');
+
             // Criar índice para melhor performance
-            await this.collection.createIndex({ sessionId: 1 }, { unique: true });
-            
-            console.log(`✅ Conectado ao MongoDB: ${this.dbName}/${this.collectionName}`);
-            
+            await this.collection.createIndex({ session: 1 }, { unique: true });
+            console.log('[MongoStore] ✅ Índice criado');
+
             // Testar conexão com ping
-            console.log('⏳ Testando conexão (ping)...');
             await this.db.admin().command({ ping: 1 });
-            console.log('✅ Ping bem-sucedido!');
-            
+            console.log('[MongoStore] ✅ Ping bem-sucedido');
         } catch (error) {
-            console.error('❌ Erro ao conectar ao MongoDB:');
-            console.error(`   Tipo: ${error.constructor.name}`);
-            console.error(`   Mensagem: ${error.message}`);
-            if (error.code) {
-                console.error(`   Código: ${error.code}`);
-            }
-            if (error.cause) {
-                console.error(`   Causa: ${error.cause.message || error.cause}`);
-            }
-            
-            // Informações adicionais para diagnóstico
-            console.error('📋 Informações de diagnóstico:');
-            console.error(`   URI configurada: ${this.uri ? 'Sim' : 'Não'}`);
-            console.error(`   URI começa com mongodb+srv: ${this.uri.startsWith('mongodb+srv://')}`);
-            
-            if (this.client) {
-                try {
-                    await this.client.close();
-                } catch (closeError) {
-                    // Ignorar erro ao fechar
-                }
-                this.client = null;
-            }
+            console.error('[MongoStore] ❌ Erro ao conectar:', error.message);
             throw error;
         }
     }
 
     async sessionExists(options) {
-        await this.connect();
-        const session = await this.collection.findOne({ sessionId: options.session });
-        return !!session;
+        if (!this.collection) {
+            await this.connect();
+        }
+
+        const session = options.session || 'default';
+        console.log(`[MongoStore] Verificando se sessão existe: ${session}`);
+
+        try {
+            const doc = await this.collection.findOne({ session });
+            const exists = !!doc;
+            
+            console.log(`[MongoStore] Sessão "${session}": ${exists ? 'EXISTE' : 'NÃO EXISTE'}`);
+            if (exists) {
+                console.log(`[MongoStore] 📦 Dados da sessão encontrados (${Object.keys(doc).length} campos)`);
+            }
+            
+            return exists;
+        } catch (error) {
+            console.error(`[MongoStore] ❌ Erro ao verificar sessão: ${error.message}`);
+            return false;
+        }
     }
 
     async save(options) {
-        await this.connect();
-        const sessionData = {
-            sessionId: options.session,
-            data: options.data,
-            updatedAt: new Date(),
-        };
+        if (!this.collection) {
+            await this.connect();
+        }
 
-        await this.collection.updateOne(
-            { sessionId: options.session },
-            { $set: sessionData },
-            { upsert: true }
-        );
+        const session = options.session || 'default';
+        const data = options.data || {};
+
+        console.log(`[MongoStore] 💾 Salvando sessão: ${session}`);
+        console.log(`[MongoStore] Tamanho dos dados: ${JSON.stringify(data).length} bytes`);
+
+        try {
+            await this.collection.updateOne(
+                { session },
+                { 
+                    $set: { 
+                        session,
+                        data,
+                        updatedAt: new Date()
+                    }
+                },
+                { upsert: true }
+            );
+            console.log(`[MongoStore] ✅ Sessão salva com sucesso`);
+        } catch (error) {
+            console.error(`[MongoStore] ❌ Erro ao salvar sessão: ${error.message}`);
+            throw error;
+        }
     }
 
     async extract(options) {
-        await this.connect();
-        const session = await this.collection.findOne({ sessionId: options.session });
-        return session ? session.data : null;
+        if (!this.collection) {
+            await this.connect();
+        }
+
+        const session = options.session || 'default';
+        console.log(`[MongoStore] 📥 Extraindo sessão: ${session}`);
+
+        try {
+            const doc = await this.collection.findOne({ session });
+            
+            if (!doc) {
+                console.log(`[MongoStore] ⚠️ Sessão não encontrada`);
+                return null;
+            }
+
+            console.log(`[MongoStore] ✅ Sessão extraída (${Object.keys(doc.data || {}).length} campos)`);
+            return doc.data || null;
+        } catch (error) {
+            console.error(`[MongoStore] ❌ Erro ao extrair sessão: ${error.message}`);
+            return null;
+        }
     }
 
     async delete(options) {
-        await this.connect();
-        await this.collection.deleteOne({ sessionId: options.session });
+        if (!this.collection) {
+            await this.connect();
+        }
+
+        const session = options.session || 'default';
+        console.log(`[MongoStore] 🗑️ Deletando sessão: ${session}`);
+
+        try {
+            const result = await this.collection.deleteOne({ session });
+            console.log(`[MongoStore] ✅ Sessão deletada: ${result.deletedCount > 0 ? 'SIM' : 'NÃO ENCONTRADA'}`);
+            return result.deletedCount > 0;
+        } catch (error) {
+            console.error(`[MongoStore] ❌ Erro ao deletar sessão: ${error.message}`);
+            return false;
+        }
     }
 
     async list() {
-        await this.connect();
-        const sessions = await this.collection.find({}).toArray();
-        return sessions.map(s => s.sessionId);
+        if (!this.collection) {
+            await this.connect();
+        }
+
+        console.log(`[MongoStore] 📋 Listando todas as sessões`);
+
+        try {
+            const sessions = await this.collection.find({}).toArray();
+            console.log(`[MongoStore] ✅ Encontradas ${sessions.length} sessão(ões)`);
+            return sessions.map(doc => doc.session);
+        } catch (error) {
+            console.error(`[MongoStore] ❌ Erro ao listar sessões: ${error.message}`);
+            return [];
+        }
     }
 
     async close() {
         if (this.client) {
+            console.log('[MongoStore] Fechando conexão...');
             await this.client.close();
             this.client = null;
             this.db = null;
             this.collection = null;
+            console.log('[MongoStore] ✅ Conexão fechada');
         }
     }
 }
 
 module.exports = MongoStore;
-
-

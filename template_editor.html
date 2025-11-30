@@ -1475,6 +1475,25 @@
                         <button class="reset-btn" onclick="logoutWhatsApp()" id="logout-whatsapp-btn" style="display: none;">
                             🚪 Logout
                         </button>
+                        <button class="reset-btn" onclick="forceResetWhatsApp()" id="force-reset-btn" style="background: #dc3545; display: none;">
+                            🔄 Forçar Reset (Limpar Sessão)
+                        </button>
+                        <button class="export-btn" onclick="startAutoReconnect()" id="auto-reconnect-btn" style="background: #6f42c1;">
+                            ⏱️ Monitorar Conexão (2min)
+                        </button>
+                    </div>
+                    <div id="force-reset-status" style="display: none; margin-top: 10px; padding: 10px; background: #fff3cd; border-radius: 5px; border: 1px solid #ffc107;">
+                        <strong>⏱️ Monitoramento Automático:</strong>
+                        <span id="force-reset-timer" style="color: #856404;">Aguardando conexão...</span>
+                    </div>
+                    <div id="auto-reconnect-status" style="display: none; margin-top: 10px; padding: 10px; background: #d1ecf1; border-radius: 5px; border: 1px solid #17a2b8;">
+                        <strong>⏱️ Monitoramento de Conexão:</strong>
+                        <div id="auto-reconnect-timer" style="color: #0c5460; margin-top: 5px;">
+                            <span id="auto-reconnect-time">120</span> segundos restantes...
+                        </div>
+                        <div id="auto-reconnect-status-text" style="color: #0c5460; margin-top: 5px; font-size: 12px;">
+                            Verificando status do WhatsApp...
+                        </div>
                     </div>
                     
                     <div id="whatsapp-qr-container" style="display: none; margin-top: 15px; padding: 15px; background: white; border-radius: 5px; border: 2px solid #ffc107; text-align: center;">
@@ -4713,6 +4732,7 @@
             const stopBtn = document.getElementById('stop-whatsapp-server-btn');
             const qrBtn = document.getElementById('show-qr-btn');
             const logoutBtn = document.getElementById('logout-whatsapp-btn');
+            const forceResetBtn = document.getElementById('force-reset-btn');
             
             if (startBtn) startBtn.style.display = running ? 'none' : 'inline-block';
             if (stopBtn) stopBtn.style.display = running ? 'inline-block' : 'none';
@@ -4727,6 +4747,11 @@
                 qrBtn.disabled = shouldShowQR && !hasQR;
                 qrBtn.textContent = hasQR ? '📱 Ler QR Code' : '📱 Aguardando QR...';
                 qrBtn.style.opacity = qrBtn.disabled ? '0.7' : '1';
+            }
+            
+            // Mostrar botão de force reset apenas quando servidor está rodando mas não conectado
+            if (forceResetBtn) {
+                forceResetBtn.style.display = (running && !ready) ? 'inline-block' : 'none';
             }
         }
         
@@ -4973,6 +4998,162 @@
                 whatsappQrInterval = null;
             }
             hideQRCode(true);
+        }
+        
+        // Função para monitorar conexão e forçar reset se não conectar em 2 minutos
+        let autoReconnectInterval = null;
+        let autoReconnectTimeout = null;
+        let autoReconnectStartTime = null;
+        
+        async function startAutoReconnect() {
+            const statusDiv = document.getElementById('auto-reconnect-status');
+            const timerSpan = document.getElementById('auto-reconnect-time');
+            const statusText = document.getElementById('auto-reconnect-status-text');
+            const btn = document.getElementById('auto-reconnect-btn');
+            
+            if (!statusDiv || !timerSpan || !statusText || !btn) {
+                alert('Erro: Elementos do monitoramento não encontrados.');
+                return;
+            }
+            
+            // Se já está monitorando, parar
+            if (autoReconnectInterval) {
+                stopAutoReconnect();
+                return;
+            }
+            
+            // Mostrar status
+            statusDiv.style.display = 'block';
+            btn.textContent = '⏹️ Parar Monitoramento';
+            btn.style.background = '#dc3545';
+            
+            // Iniciar contador
+            autoReconnectStartTime = Date.now();
+            const TIMEOUT_MS = 2 * 60 * 1000; // 2 minutos
+            let timeRemaining = TIMEOUT_MS;
+            
+            // Atualizar timer a cada segundo
+            const timerInterval = setInterval(() => {
+                timeRemaining = TIMEOUT_MS - (Date.now() - autoReconnectStartTime);
+                const seconds = Math.ceil(timeRemaining / 1000);
+                timerSpan.textContent = seconds > 0 ? seconds : 0;
+                
+                if (timeRemaining <= 0) {
+                    clearInterval(timerInterval);
+                }
+            }, 1000);
+            
+            // Verificar status a cada 5 segundos
+            autoReconnectInterval = setInterval(async () => {
+                try {
+                    const response = await fetch(`${WHATSAPP_API_URL}/server-status`);
+                    if (!response.ok) {
+                        statusText.textContent = '❌ Erro ao verificar status do servidor';
+                        return;
+                    }
+                    
+                    const data = await response.json();
+                    const isReady = data.ready === true;
+                    
+                    if (isReady) {
+                        // WhatsApp está conectado! Parar monitoramento
+                        statusText.textContent = '✅ WhatsApp conectado com sucesso!';
+                        statusText.style.color = '#28a745';
+                        clearInterval(timerInterval);
+                        stopAutoReconnect();
+                        checkWhatsAppServerStatus();
+                        addMessengerLog('✅ Monitoramento: WhatsApp conectado com sucesso!');
+                        return;
+                    }
+                    
+                    // Verificar se passou 2 minutos
+                    const elapsed = Date.now() - autoReconnectStartTime;
+                    if (elapsed >= TIMEOUT_MS) {
+                        // Timeout atingido - forçar reset
+                        clearInterval(timerInterval);
+                        statusText.textContent = '⏱️ Timeout de 2 minutos atingido. Forçando reset...';
+                        statusText.style.color = '#dc3545';
+                        
+                        addMessengerLog('⏱️ Monitoramento: Timeout de 2 minutos atingido. WhatsApp não conectado. Forçando reset...');
+                        
+                        // Chamar force-reset
+                        try {
+                            const resetResponse = await fetch(`${WHATSAPP_API_URL}/force-reset`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' }
+                            });
+                            
+                            const resetData = await resetResponse.json();
+                            if (resetData.success) {
+                                statusText.textContent = '✅ Reset forçado! Sessão deletada. Aguardando novo QR code...';
+                                statusText.style.color = '#28a745';
+                                addMessengerLog('✅ Monitoramento: Reset forçado com sucesso. Sessão deletada do MongoDB.');
+                                
+                                // Mostrar QR code
+                                setTimeout(() => {
+                                    showQRCode(true);
+                                    checkWhatsAppServerStatus();
+                                }, 2000);
+                                
+                                // Parar monitoramento após reset
+                                setTimeout(() => {
+                                    stopAutoReconnect();
+                                }, 5000);
+                            } else {
+                                statusText.textContent = `❌ Erro ao forçar reset: ${resetData.error || 'Erro desconhecido'}`;
+                                statusText.style.color = '#dc3545';
+                                addMessengerLog(`❌ Monitoramento: Erro ao forçar reset: ${resetData.error || 'Erro desconhecido'}`);
+                            }
+                        } catch (resetError) {
+                            statusText.textContent = `❌ Erro ao chamar reset: ${resetError.message}`;
+                            statusText.style.color = '#dc3545';
+                            addMessengerLog(`❌ Monitoramento: Erro ao chamar reset: ${resetError.message}`);
+                        }
+                        
+                        stopAutoReconnect();
+                    } else {
+                        // Ainda dentro do timeout
+                        const remainingSeconds = Math.ceil((TIMEOUT_MS - elapsed) / 1000);
+                        statusText.textContent = `⏳ WhatsApp não conectado. Aguardando... (${remainingSeconds}s restantes)`;
+                        statusText.style.color = '#856404';
+                    }
+                } catch (error) {
+                    statusText.textContent = `❌ Erro ao verificar status: ${error.message}`;
+                    statusText.style.color = '#dc3545';
+                }
+            }, 5000); // Verificar a cada 5 segundos
+            
+            // Primeira verificação imediata
+            statusText.textContent = '🔄 Verificando status do WhatsApp...';
+            statusText.style.color = '#0c5460';
+            
+            addMessengerLog('⏱️ Monitoramento iniciado: Verificando conexão do WhatsApp por 2 minutos...');
+        }
+        
+        function stopAutoReconnect() {
+            if (autoReconnectInterval) {
+                clearInterval(autoReconnectInterval);
+                autoReconnectInterval = null;
+            }
+            
+            if (autoReconnectTimeout) {
+                clearTimeout(autoReconnectTimeout);
+                autoReconnectTimeout = null;
+            }
+            
+            const statusDiv = document.getElementById('auto-reconnect-status');
+            const btn = document.getElementById('auto-reconnect-btn');
+            
+            if (statusDiv) {
+                statusDiv.style.display = 'none';
+            }
+            
+            if (btn) {
+                btn.textContent = '⏱️ Monitorar Conexão (2min)';
+                btn.style.background = '#6f42c1';
+            }
+            
+            autoReconnectStartTime = null;
         }
         
         // ========== FIM DAS FUNÇÕES DE CONTROLE DO SERVIDOR WHATSAPP ==========
