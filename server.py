@@ -181,13 +181,31 @@ def run_generator():
 
 @app.route('/save-template', methods=['POST'])
 def save_template():
-    """Salva o template JSON no servidor"""
+    """Salva o template JSON no servidor - suporta Cloudinary"""
     try:
         template_data = request.get_json()
         
-        # Salvar no arquivo banner-template.json
-        with open('banner-template.json', 'w', encoding='utf-8') as f:
-            json.dump(template_data, f, indent=2, ensure_ascii=False)
+        # Salvar localmente primeiro
+        try:
+            with open('banner-template.json', 'w', encoding='utf-8') as f:
+                json.dump(template_data, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            print(f'⚠ Erro ao salvar template localmente: {e}')
+        
+        # Upload para Cloudinary se habilitado
+        USE_CLOUDINARY = os.getenv('USE_CLOUDINARY', 'true').lower() == 'true'
+        if USE_CLOUDINARY:
+            try:
+                from cloudinary_storage import save_template_to_cloudinary
+                url = save_template_to_cloudinary(template_data)
+                if url:
+                    return jsonify({
+                        'status': 'success',
+                        'message': 'Template salvo com sucesso (local e Cloudinary)',
+                        'cloudinary_url': url
+                    })
+            except Exception as e:
+                print(f'⚠ Erro ao salvar template no Cloudinary: {e}')
         
         return jsonify({'status': 'success', 'message': 'Template salvo com sucesso'})
     except Exception as e:
@@ -309,21 +327,11 @@ def get_product_image(codigo):
 
 @app.route('/get-image/<image_name>', methods=['GET'])
 def get_image(image_name):
-    """Retorna uma imagem da pasta imagens como base64"""
+    """Retorna uma imagem da pasta imagens como base64 - suporta Cloudinary e local"""
     import base64
     
-    images_folder = 'imagens'
-    
-    # Lista de possíveis nomes de arquivo (case-insensitive)
-    possible_names = [
-        image_name,
-        image_name + '.png',
-        image_name + '.jpg',
-        image_name + '.jpeg',
-        image_name + '.PNG',
-        image_name + '.JPG',
-        image_name + '.JPEG',
-    ]
+    # Verificar se Cloudinary está habilitado
+    USE_CLOUDINARY = os.getenv('USE_CLOUDINARY', 'true').lower() == 'true'
     
     # Mapear nomes de imagem solicitados para nomes reais
     image_mapping = {
@@ -335,17 +343,44 @@ def get_image(image_name):
         'logo-superior': 'Logo',
     }
     
-    # Verificar se há um mapeamento
-    if image_name in image_mapping:
-        base_name = image_mapping[image_name]
-        possible_names = [
-            base_name + '.png',
-            base_name + '.jpg',
-            base_name + '.jpeg',
-            base_name + '.PNG',
-            base_name + '.JPG',
-            base_name + '.JPEG',
-        ]
+    # Obter nome real da imagem
+    base_name = image_mapping.get(image_name, image_name)
+    
+    # Tentar Cloudinary primeiro se habilitado
+    if USE_CLOUDINARY:
+        try:
+            from cloudinary_storage import get_image_base64_from_cloudinary
+            print(f'🔍 Tentando buscar imagem do Cloudinary: {base_name} na pasta imagens')
+            image_data = get_image_base64_from_cloudinary(base_name, folder='imagens')
+            if image_data:
+                print(f'✅ Imagem encontrada no Cloudinary: {base_name} ({len(image_data)} chars base64)')
+                return jsonify({
+                    'status': 'success',
+                    'data': f'data:image/png;base64,{image_data}',
+                    'mime_type': 'image/png',
+                    'source': 'cloudinary'
+                })
+            else:
+                print(f'⚠️ Imagem não encontrada no Cloudinary: {base_name} (retornou None)')
+        except ImportError as e:
+            print(f'❌ Erro ao importar cloudinary_storage: {e}')
+            import traceback
+            traceback.print_exc()
+        except Exception as e:
+            print(f'⚠ Erro ao buscar do Cloudinary: {e}. Tentando local...')
+            import traceback
+            traceback.print_exc()
+    
+    # Fallback para arquivo local
+    images_folder = 'imagens'
+    possible_names = [
+        base_name + '.png',
+        base_name + '.jpg',
+        base_name + '.jpeg',
+        base_name + '.PNG',
+        base_name + '.JPG',
+        base_name + '.JPEG',
+    ]
     
     # Tentar encontrar o arquivo
     for name in possible_names:
@@ -363,7 +398,8 @@ def get_image(image_name):
                 return jsonify({
                     'status': 'success',
                     'data': f'data:{mime_type};base64,{image_data}',
-                    'mime_type': mime_type
+                    'mime_type': mime_type,
+                    'source': 'local'
                 })
             except Exception as e:
                 return jsonify({'status': 'error', 'error': str(e)}), 500
