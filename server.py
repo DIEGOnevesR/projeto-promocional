@@ -350,10 +350,11 @@ def get_image(image_name):
     if USE_CLOUDINARY:
         try:
             from cloudinary_storage import get_image_base64_from_cloudinary
-            print(f'🔍 Tentando buscar imagem do Cloudinary: {base_name} na pasta imagens')
+            print(f'🔍 [Server] Tentando buscar imagem do Cloudinary: {base_name} na pasta imagens')
+            print(f'🔍 [Server] Mapeamento: {image_name} -> {base_name}')
             image_data = get_image_base64_from_cloudinary(base_name, folder='imagens')
             if image_data:
-                print(f'✅ Imagem encontrada no Cloudinary: {base_name} ({len(image_data)} chars base64)')
+                print(f'✅ [Server] Imagem encontrada no Cloudinary: {base_name} ({len(image_data)} chars base64)')
                 return jsonify({
                     'status': 'success',
                     'data': f'data:image/png;base64,{image_data}',
@@ -361,13 +362,13 @@ def get_image(image_name):
                     'source': 'cloudinary'
                 })
             else:
-                print(f'⚠️ Imagem não encontrada no Cloudinary: {base_name} (retornou None)')
+                print(f'⚠️ [Server] Imagem não encontrada no Cloudinary: {base_name} (retornou None)')
         except ImportError as e:
-            print(f'❌ Erro ao importar cloudinary_storage: {e}')
+            print(f'❌ [Server] Erro ao importar cloudinary_storage: {e}')
             import traceback
             traceback.print_exc()
         except Exception as e:
-            print(f'⚠ Erro ao buscar do Cloudinary: {e}. Tentando local...')
+            print(f'⚠️ [Server] Erro ao buscar do Cloudinary: {e}. Tentando local...')
             import traceback
             traceback.print_exc()
     
