@@ -1,0 +1,37 @@
+name: Keep Render Services Alive
+
+on:
+  schedule:
+    # Executa a cada 10 minutos
+    - cron: '*/10 * * * *'
+  workflow_dispatch:  # Permite execução manual
+
+jobs:
+  ping-services:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    
+    steps:
+      - name: Ping Backend Principal
+        run: |
+          echo "🔄 Fazendo ping no Backend Principal..."
+          curl -f -s -o /dev/null -w "Status: %{http_code}\n" \
+            https://projeto-promocional.onrender.com/health || echo "❌ Falha no ping"
+      
+      - name: Ping WhatsApp Sender
+        run: |
+          echo "🔄 Fazendo ping no WhatsApp Sender..."
+          curl -f -s -o /dev/null -w "Status: %{http_code}\n" \
+            https://whatsapp-sender-weq8.onrender.com/health || echo "❌ Falha no ping"
+      
+      - name: Ping Gmail Monitor
+        run: |
+          echo "🔄 Fazendo ping no Gmail Monitor..."
+          curl -f -s -o /dev/null -w "Status: %{http_code}\n" \
+            https://gmail-monitor-pfts.onrender.com/health || echo "❌ Falha no ping"
+      
+      - name: Resumo
+        run: |
+          echo "✅ Keep-alive executado com sucesso!"
+          echo "📅 Próxima execução em 10 minutos"
+

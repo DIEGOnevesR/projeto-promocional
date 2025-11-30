@@ -132,3 +132,8 @@ Se funcionar localmente mas não no Render, o problema é Network Access.
 
 
 
+<<<<<<< HEAD
+=======
+
+
+>>>>>>> origin/master

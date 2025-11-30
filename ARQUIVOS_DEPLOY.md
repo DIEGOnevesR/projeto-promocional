@@ -107,3 +107,8 @@ Este documento lista todos os arquivos criados/modificados para facilitar o depl
 
 
 
+<<<<<<< HEAD
+=======
+
+
+>>>>>>> origin/master

@@ -221,3 +221,8 @@ Para problemas específicos:
 
 
 
+<<<<<<< HEAD
+=======
+
+
+>>>>>>> origin/master

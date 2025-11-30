@@ -149,3 +149,8 @@ Seu projeto está no ar! Compartilhe a URL com quem precisar usar.
 
 
 
+<<<<<<< HEAD
+=======
+
+
+>>>>>>> origin/master
