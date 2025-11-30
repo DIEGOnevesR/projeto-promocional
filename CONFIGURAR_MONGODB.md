@@ -130,3 +130,5 @@ Se você já tem uma sessão local:
 **Pronto!** Agora sua sessão do WhatsApp será persistida no MongoDB e não será perdida quando o serviço reiniciar! 🎉
 
 
+
+
