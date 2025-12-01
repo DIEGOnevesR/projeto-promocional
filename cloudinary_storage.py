@@ -209,27 +209,37 @@ def download_file_from_cloudinary(public_id, folder='files', save_path=None):
     try:
         # Construir public_id completo
         full_public_id = f'{folder}/{public_id}'
+        print(f'  🔍 Tentando baixar arquivo: {full_public_id}')
         
         # Buscar via API (método mais confiável - retorna URL com versão correta)
+        url = None
         try:
             resource = cloudinary.api.resource(full_public_id, resource_type='raw')
             url = resource.get('secure_url') or resource.get('url')
-            if not url:
-                return None
+            if url:
+                print(f'  ✓ URL obtida da API: {url[:80]}...')
+            else:
+                print(f'  ⚠ API não retornou URL para: {full_public_id}')
         except Exception as api_error:
             # Se falhar, tentar usar cloudinary_url como fallback
+            print(f'  ⚠ Erro ao buscar via API: {api_error}')
             try:
                 url, _ = cloudinary_url(full_public_id, resource_type='raw', secure=True)
-            except:
-                print(f'⚠️ Erro ao buscar arquivo via API: {api_error}')
+                if url:
+                    print(f'  ✓ URL obtida via cloudinary_url: {url[:80]}...')
+            except Exception as url_error:
+                print(f'  ❌ Erro ao gerar URL: {url_error}')
                 return None
         
         if not url:
+            print(f'  ❌ Não foi possível obter URL para: {full_public_id}')
             return None
         
+        print(f'  📥 Fazendo download de: {url[:80]}...')
         response = requests.get(url, timeout=30)
         if response.status_code == 200:
             content = response.content
+            print(f'  ✓ Arquivo baixado com sucesso: {len(content)} bytes')
             
             if save_path:
                 os.makedirs(os.path.dirname(save_path) if os.path.dirname(save_path) else '.', exist_ok=True)
@@ -239,11 +249,11 @@ def download_file_from_cloudinary(public_id, folder='files', save_path=None):
             
             return content
         else:
-            print(f'⚠️ Erro ao baixar arquivo: HTTP {response.status_code}')
+            print(f'  ❌ Erro ao baixar arquivo: HTTP {response.status_code}')
             return None
             
     except Exception as e:
-        print(f'❌ Erro ao baixar arquivo: {e}')
+        print(f'  ❌ Erro ao baixar arquivo: {e}')
         import traceback
         traceback.print_exc()
         return None
@@ -261,6 +271,7 @@ def get_csv_from_cloudinary(public_id='Tabela de Preço', folder='files', encodi
         String com conteúdo do CSV ou None se erro
     """
     try:
+        print(f'  📋 Buscando CSV: public_id="{public_id}", folder="{folder}"')
         # Lista de variações para tentar (priorizar com extensão .csv)
         variations = []
         
@@ -273,19 +284,26 @@ def get_csv_from_cloudinary(public_id='Tabela de Preço', folder='files', encodi
             variations.append(public_id)
             variations.append(public_id[:-4])  # Tentar sem extensão
         
+        print(f'  🔄 Tentando {len(variations)} variações: {variations}')
         # Tentar cada variação
         for variant in variations:
             try:
+                print(f'  🔍 Tentando variação: {variant}')
                 content = download_file_from_cloudinary(variant, folder=folder)
                 if content:
+                    print(f'  ✓ CSV obtido com sucesso da variação: {variant}')
                     return content.decode(encoding)
+                else:
+                    print(f'  ⚠ Variação {variant} retornou None')
             except Exception as e:
+                print(f'  ⚠ Erro ao tentar variação {variant}: {e}')
                 # Continuar tentando outras variações
                 continue
         
+        print(f'  ❌ Nenhuma variação funcionou para: {public_id}')
         return None
     except Exception as e:
-        print(f'❌ Erro ao ler CSV do Cloudinary: {e}')
+        print(f'  ❌ Erro ao ler CSV do Cloudinary: {e}')
         import traceback
         traceback.print_exc()
         return None
