@@ -375,7 +375,7 @@ class BannerGenerator:
             # Verificar se realmente mudou
             if old_count == new_count and template_antes == self.template_config:
                 print(f'  ⚠ Atenção: Template recarregado mas valores são idênticos aos anteriores')
-        else:
+            else:
                 print(f'  ✓ Template atualizado (tinha {old_count}, agora tem {new_count} propriedades)')
         else:
             print(f'❌❌❌ ERRO CRÍTICO: Template vazio ou não encontrado após recarregar!')
