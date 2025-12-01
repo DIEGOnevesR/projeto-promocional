@@ -30,7 +30,9 @@ try:
         upload_cache_image_to_cloudinary,
         get_cache_image_from_cloudinary,
         save_template_to_cloudinary,
-        load_template_from_cloudinary
+        load_template_from_cloudinary,
+        get_csv_from_cloudinary,
+        upload_csv_to_cloudinary
     )
     USE_CLOUDINARY = os.getenv('USE_CLOUDINARY', 'true').lower() == 'true'
 except ImportError:
@@ -84,8 +86,21 @@ class BannerGenerator:
         if not os.path.exists(self.images_folder):
             print(f'⚠ Pasta {self.images_folder} não encontrada!')
         
-        if not os.path.exists(CSV_FILE):
-            raise FileNotFoundError(f'Arquivo CSV não encontrado: {CSV_FILE}')
+        # Verificar se CSV existe localmente ou no Cloudinary
+        csv_exists_local = os.path.exists(CSV_FILE)
+        csv_exists_cloudinary = False
+        
+        if USE_CLOUDINARY:
+            try:
+                csv_content = get_csv_from_cloudinary('Tabela de Preço', folder='files')
+                if csv_content:
+                    csv_exists_cloudinary = True
+                    print('✓ CSV encontrado no Cloudinary')
+            except:
+                pass
+        
+        if not csv_exists_local and not csv_exists_cloudinary:
+            raise FileNotFoundError(f'Arquivo CSV não encontrado localmente ({CSV_FILE}) nem no Cloudinary')
         
         # Criar pasta de cache se não existir
         self.cache_folder = CACHE_FOLDER
@@ -2421,7 +2436,7 @@ body {{ margin: 0; padding: 0; width: {BANNER_WIDTH}px; height: {BANNER_HEIGHT}p
             return False
 
     def save_csv_with_format(self, df, file_path, sep, encoding):
-        """Salva o DataFrame mantendo o formato original do CSV"""
+        """Salva o DataFrame mantendo o formato original do CSV (local e Cloudinary)"""
         try:
             # Remover colunas internas que não devem ser salvas
             df_to_save = df.copy()
@@ -2430,8 +2445,20 @@ body {{ margin: 0; padding: 0; width: {BANNER_WIDTH}px; height: {BANNER_HEIGHT}p
                 if col in df_to_save.columns:
                     df_to_save = df_to_save.drop(columns=[col])
             
-            # Salvar CSV mantendo o formato
+            # Salvar CSV localmente primeiro
             df_to_save.to_csv(file_path, sep=sep, encoding=encoding, index=False, lineterminator='\n')
+            
+            # Também salvar no Cloudinary se habilitado
+            if USE_CLOUDINARY:
+                try:
+                    url = upload_csv_to_cloudinary(file_path, public_id='Tabela de Preço', folder='files')
+                    if url:
+                        print(f'  ✓ CSV atualizado no Cloudinary: {url[:80]}...')
+                    else:
+                        print(f'  ⚠ Aviso: CSV salvo localmente mas não foi possível atualizar no Cloudinary')
+                except Exception as cloudinary_error:
+                    print(f'  ⚠ Aviso: Erro ao salvar CSV no Cloudinary: {cloudinary_error}')
+            
             return True
         except Exception as e:
             print(f'⚠ Erro ao salvar CSV: {e}')
@@ -2528,6 +2555,7 @@ body {{ margin: 0; padding: 0; width: {BANNER_WIDTH}px; height: {BANNER_HEIGHT}p
         read_error = None
         csv_sep = ','
         csv_encoding = 'utf-8-sig'
+        csv_source = 'local'  # 'local' ou 'cloudinary'
         required_columns = ['Unidade', 'Início', 'Fim', 'Código', 'Nome', 'Preço Comercial', 'Preço Promocional']
         sep_configs = [
             {'sep': ',', 'decimal': '.'},
@@ -2536,6 +2564,40 @@ body {{ margin: 0; padding: 0; width: {BANNER_WIDTH}px; height: {BANNER_HEIGHT}p
             {'sep': ',', 'decimal': ','},
             {'sep': '\t', 'decimal': ','}
         ]
+        
+        # Tentar ler do Cloudinary primeiro
+        csv_content = None
+        if USE_CLOUDINARY:
+            try:
+                print('  🔍 Tentando ler CSV do Cloudinary...')
+                csv_content = get_csv_from_cloudinary('Tabela de Preço', folder='files')
+                if csv_content:
+                    print('  ✓ CSV obtido do Cloudinary')
+                    csv_source = 'cloudinary'
+            except Exception as e:
+                print(f'  ⚠ Erro ao ler CSV do Cloudinary: {e}')
+                csv_content = None
+        
+        # Se não conseguiu do Cloudinary, tentar arquivo local
+        if csv_content is None:
+            if os.path.exists(CSV_FILE):
+                print(f'  🔍 Tentando ler CSV local: {CSV_FILE}')
+                try:
+                    with open(CSV_FILE, 'r', encoding='utf-8-sig') as f:
+                        csv_content = f.read()
+                    csv_source = 'local'
+                    print('  ✓ CSV obtido do arquivo local')
+                except Exception as e:
+                    print(f'  ⚠ Erro ao ler arquivo local: {e}')
+                    csv_content = None
+            else:
+                print(f'  ⚠ Arquivo local não encontrado: {CSV_FILE}')
+        
+        if csv_content is None:
+            raise Exception(f'Erro: Não foi possível ler CSV nem do Cloudinary nem do arquivo local ({CSV_FILE})')
+        
+        # Processar CSV (tentar diferentes separadores e encodings)
+        import io
         for encoding in ('utf-8-sig', 'utf-8', 'latin1'):
             for config in sep_configs:
                 try:
@@ -2546,13 +2608,19 @@ body {{ margin: 0; padding: 0; width: {BANNER_WIDTH}px; height: {BANNER_HEIGHT}p
                     }
                     if config.get('decimal') is not None:
                         read_kwargs['decimal'] = config['decimal']
-                    candidate_df = pd.read_csv(CSV_FILE, **read_kwargs)
+                    
+                    # Ler do conteúdo (string) ou arquivo
+                    if csv_source == 'cloudinary':
+                        candidate_df = pd.read_csv(io.StringIO(csv_content), **read_kwargs)
+                    else:
+                        candidate_df = pd.read_csv(CSV_FILE, **read_kwargs)
+                    
                     candidate_df.columns = candidate_df.columns.str.strip()
                     if set(required_columns).issubset(set(candidate_df.columns)):
                         df = candidate_df
                         csv_sep = config['sep']
                         csv_encoding = encoding
-                        print(f"✓ CSV lido com separador '{config['sep']}' (encoding {encoding})")
+                        print(f"✓ CSV lido com separador '{config['sep']}' (encoding {encoding}) - Fonte: {csv_source}")
                         break
                     else:
                         print(f"⚠ Separador '{config['sep']}' com encoding {encoding} não contém colunas esperadas: {list(candidate_df.columns)}")
@@ -2562,7 +2630,7 @@ body {{ margin: 0; padding: 0; width: {BANNER_WIDTH}px; height: {BANNER_HEIGHT}p
             if df is not None:
                 break
         if df is None:
-            raise Exception(f'Erro ao ler CSV ({CSV_FILE}): {read_error}')
+            raise Exception(f'Erro ao processar CSV (fonte: {csv_source}): {read_error}')
 
         update_progress('read_csv', 5, 'CSV lido com sucesso', {'total_registros': len(df) if df is not None else 0})
 

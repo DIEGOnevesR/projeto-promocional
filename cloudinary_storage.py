@@ -216,7 +216,7 @@ def download_file_from_cloudinary(public_id, folder='files', save_path=None):
             content = response.content
             
             if save_path:
-                os.makedirs(os.path.dirname(save_path), exist_ok=True)
+                os.makedirs(os.path.dirname(save_path) if os.path.dirname(save_path) else '.', exist_ok=True)
                 with open(save_path, 'wb') as f:
                     f.write(content)
                 print(f'✅ Arquivo salvo: {save_path}')
@@ -229,6 +229,41 @@ def download_file_from_cloudinary(public_id, folder='files', save_path=None):
     except Exception as e:
         print(f'❌ Erro ao baixar arquivo: {e}')
         return None
+
+def get_csv_from_cloudinary(public_id='Tabela de Preço', folder='files', encoding='utf-8-sig'):
+    """
+    Busca CSV do Cloudinary e retorna como string
+    
+    Args:
+        public_id: ID público do arquivo CSV (sem extensão)
+        folder: Pasta no Cloudinary (padrão: 'files')
+        encoding: Encoding do arquivo (padrão: 'utf-8-sig')
+    
+    Returns:
+        String com conteúdo do CSV ou None se erro
+    """
+    try:
+        content = download_file_from_cloudinary(public_id, folder=folder)
+        if content:
+            return content.decode(encoding)
+        return None
+    except Exception as e:
+        print(f'❌ Erro ao ler CSV do Cloudinary: {e}')
+        return None
+
+def upload_csv_to_cloudinary(file_path, public_id='Tabela de Preço', folder='files'):
+    """
+    Upload CSV para Cloudinary
+    
+    Args:
+        file_path: Caminho do arquivo CSV local
+        public_id: ID público no Cloudinary (padrão: 'Tabela de Preço')
+        folder: Pasta no Cloudinary (padrão: 'files')
+    
+    Returns:
+        URL pública do arquivo ou None se erro
+    """
+    return upload_file_to_cloudinary(file_path, folder=folder, public_id=public_id)
 
 def delete_from_cloudinary(public_id, folder='imagens', resource_type='image'):
     """

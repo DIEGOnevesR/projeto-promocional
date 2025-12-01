@@ -1407,6 +1407,19 @@
             <button class="export-btn" onclick="loadTemplate()" style="background: #343a40; margin-top: 10px;">📂 Carregar Template</button>
             <button class="reset-btn" onclick="resetValues()" style="margin-top: 10px;">↩️ Restaurar Padrões</button>
             
+            <h2 style="margin-top: 30px;">📊 Tabela de Preços (CSV)</h2>
+            <div class="control-group" style="margin-top: 10px;">
+                <label>Upload de Tabela de Preços:</label>
+                <div class="file-input-wrapper">
+                    <input type="file" id="csv-upload" accept=".csv" onchange="handleCsvUpload(event)">
+                    <label for="csv-upload" class="file-input-label">📄 Escolher Arquivo CSV</label>
+                </div>
+                <small style="color: #666; font-size: 11px; display: block; margin-top: 5px;">
+                    💡 O arquivo será enviado para o Cloudinary e substituirá a tabela atual
+                </small>
+                <div id="csv-upload-status" style="margin-top: 10px; padding: 10px; border-radius: 5px; display: none;"></div>
+            </div>
+            
             <h2 style="margin-top: 30px;">🚀 Executar Gerador</h2>
             <button class="export-btn" onclick="checkAndStartServer()" id="start-server-btn" style="background: #6c757d; margin-top: 10px;">🔌 Verificar/Iniciar Servidor</button>
             <button class="export-btn" onclick="executeGenerator()" id="execute-btn" style="background: #17a2b8; margin-top: 10px;">▶️ Executar Gerador</button>
@@ -3884,6 +3897,68 @@
                 }
             } catch (error) {
                 addMessengerLog(`❌ Erro ao fazer upload: ${error.message}`);
+            }
+        }
+        
+        async function handleCsvUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            if (!file.name.toLowerCase().endsWith('.csv')) {
+                const statusDiv = document.getElementById('csv-upload-status');
+                statusDiv.style.display = 'block';
+                statusDiv.style.background = '#f8d7da';
+                statusDiv.style.color = '#721c24';
+                statusDiv.style.border = '1px solid #f5c6cb';
+                statusDiv.textContent = '❌ Por favor, selecione um arquivo CSV (.csv)';
+                return;
+            }
+            
+            const statusDiv = document.getElementById('csv-upload-status');
+            statusDiv.style.display = 'block';
+            statusDiv.style.background = '#d1ecf1';
+            statusDiv.style.color = '#0c5460';
+            statusDiv.style.border = '1px solid #bee5eb';
+            statusDiv.textContent = '📤 Fazendo upload do CSV...';
+            
+            const formData = new FormData();
+            formData.append('csv', file);
+            
+            try {
+                const response = await fetch(`${BACKEND_URL}/upload-csv`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                if (data.status === 'success') {
+                    statusDiv.style.background = '#d4edda';
+                    statusDiv.style.color = '#155724';
+                    statusDiv.style.border = '1px solid #c3e6cb';
+                    statusDiv.innerHTML = `✅ CSV enviado com sucesso!<br><small>${data.message}</small>`;
+                    if (data.url) {
+                        statusDiv.innerHTML += `<br><small>URL: ${data.url.substring(0, 60)}...</small>`;
+                    }
+                    addLog(`✅ CSV atualizado: ${file.name}`);
+                } else if (data.status === 'warning') {
+                    statusDiv.style.background = '#fff3cd';
+                    statusDiv.style.color = '#856404';
+                    statusDiv.style.border = '1px solid #ffeaa7';
+                    statusDiv.innerHTML = `⚠️ ${data.message}`;
+                    addLog(`⚠️ CSV: ${data.message}`);
+                } else {
+                    statusDiv.style.background = '#f8d7da';
+                    statusDiv.style.color = '#721c24';
+                    statusDiv.style.border = '1px solid #f5c6cb';
+                    statusDiv.textContent = `❌ Erro: ${data.error || 'Erro desconhecido'}`;
+                    addLog(`❌ Erro ao enviar CSV: ${data.error || 'Erro desconhecido'}`);
+                }
+            } catch (error) {
+                statusDiv.style.background = '#f8d7da';
+                statusDiv.style.color = '#721c24';
+                statusDiv.style.border = '1px solid #f5c6cb';
+                statusDiv.textContent = `❌ Erro ao fazer upload: ${error.message}`;
+                addLog(`❌ Erro ao fazer upload do CSV: ${error.message}`);
             }
         }
         

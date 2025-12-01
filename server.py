@@ -480,6 +480,85 @@ def upload_image():
     except Exception as e:
         return jsonify({'status': 'error', 'error': str(e)}), 500
 
+@app.route('/upload-csv', methods=['POST'])
+def upload_csv():
+    """Faz upload de um arquivo CSV e substitui o CSV no Cloudinary"""
+    try:
+        if 'csv' not in request.files:
+            return jsonify({'status': 'error', 'error': 'Nenhum arquivo CSV fornecido'}), 400
+        
+        file = request.files['csv']
+        
+        if file.filename == '':
+            return jsonify({'status': 'error', 'error': 'Nome de arquivo vazio'}), 400
+        
+        # Verificar extensão
+        allowed_extensions = {'csv'}
+        filename = secure_filename(file.filename)
+        file_ext = filename.rsplit('.', 1)[1].lower() if '.' in filename else ''
+        
+        if file_ext not in allowed_extensions:
+            return jsonify({'status': 'error', 'error': f'Extensão não permitida: {file_ext}. Apenas arquivos CSV são aceitos.'}), 400
+        
+        # Salvar arquivo temporariamente
+        temp_path = os.path.join('uploads', f'temp_csv_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv')
+        os.makedirs('uploads', exist_ok=True)
+        file.save(temp_path)
+        
+        # Tentar fazer upload para Cloudinary
+        try:
+            from cloudinary_storage import upload_csv_to_cloudinary
+            
+            url = upload_csv_to_cloudinary(temp_path, public_id='Tabela de Preço', folder='files')
+            
+            if url:
+                # Também salvar localmente como backup
+                local_path = 'Tabela de Preço.csv'
+                import shutil
+                shutil.copy(temp_path, local_path)
+                
+                # Remover arquivo temporário
+                os.remove(temp_path)
+                
+                return jsonify({
+                    'status': 'success',
+                    'message': 'CSV enviado e substituído com sucesso no Cloudinary',
+                    'url': url,
+                    'local_path': os.path.abspath(local_path)
+                })
+            else:
+                # Se falhar Cloudinary, pelo menos salvar localmente
+                local_path = 'Tabela de Preço.csv'
+                import shutil
+                shutil.copy(temp_path, local_path)
+                os.remove(temp_path)
+                
+                return jsonify({
+                    'status': 'warning',
+                    'message': 'CSV salvo localmente mas não foi possível atualizar no Cloudinary',
+                    'local_path': os.path.abspath(local_path)
+                }), 200
+                
+        except ImportError:
+            # Se cloudinary_storage não estiver disponível, apenas salvar localmente
+            local_path = 'Tabela de Preço.csv'
+            import shutil
+            shutil.copy(temp_path, local_path)
+            os.remove(temp_path)
+            
+            return jsonify({
+                'status': 'success',
+                'message': 'CSV salvo localmente (Cloudinary não disponível)',
+                'local_path': os.path.abspath(local_path)
+            })
+        
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f'❌ Erro ao fazer upload do CSV: {e}')
+        print(f'Detalhes: {error_details}')
+        return jsonify({'status': 'error', 'error': str(e)}), 500
+
 @app.route('/load-unidades', methods=['GET'])
 def load_unidades():
     """Carrega mapeamento de unidades para grupos do arquivo Unidades.xlsx"""
