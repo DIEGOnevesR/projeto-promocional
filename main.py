@@ -2077,17 +2077,17 @@ body {{ margin: 0; padding: 0; width: {BANNER_WIDTH}px; height: {BANNER_HEIGHT}p
                     self.playwright = sync_playwright().start()
                 self.browser = self.playwright.chromium.launch(headless=True)
                 print('  ✓ Navegador Playwright inicializado')
-        except Exception as e:
-            if 'Executable' in str(e) or 'chromium' in str(e).lower():
-                print('⚠ Tentando reinstalar Chromium...')
-                try:
-                    subprocess.run([sys.executable, '-m', 'playwright', 'install', 'chromium'], 
-                                  check=True, capture_output=True)
+            except Exception as e:
+                if 'Executable' in str(e) or 'chromium' in str(e).lower():
+                    print('⚠ Tentando reinstalar Chromium...')
+                    try:
+                        subprocess.run([sys.executable, '-m', 'playwright', 'install', 'chromium'], 
+                                      check=True, capture_output=True)
                         if self.playwright is None:
                             self.playwright = sync_playwright().start()
                         self.browser = self.playwright.chromium.launch(headless=True)
                         print('  ✓ Navegador Playwright inicializado após reinstalação')
-                except Exception as e2:
+                    except Exception as e2:
                         raise Exception(f'Erro ao inicializar navegador: {e2}')
                 else:
                     raise Exception(f'Erro ao inicializar navegador: {e}')
