@@ -196,10 +196,10 @@ def upload_banner_to_cloudinary(banner_path, unidade, data_atual, sequencia):
 
 def download_file_from_cloudinary(public_id, folder='files', save_path=None):
     """
-    Download arquivo do Cloudinary
+    Download arquivo do Cloudinary (raw files como CSV, Excel, etc)
     
     Args:
-        public_id: ID público do arquivo
+        public_id: ID público do arquivo (pode incluir extensão)
         folder: Pasta no Cloudinary
         save_path: Caminho local para salvar (opcional)
     
@@ -207,7 +207,23 @@ def download_file_from_cloudinary(public_id, folder='files', save_path=None):
         Conteúdo do arquivo (bytes) ou None se erro
     """
     try:
-        url = get_image_url_from_cloudinary(public_id, folder=folder, format='raw')
+        # Construir public_id completo
+        full_public_id = f'{folder}/{public_id}'
+        
+        # Buscar via API (método mais confiável - retorna URL com versão correta)
+        try:
+            resource = cloudinary.api.resource(full_public_id, resource_type='raw')
+            url = resource.get('secure_url') or resource.get('url')
+            if not url:
+                return None
+        except Exception as api_error:
+            # Se falhar, tentar usar cloudinary_url como fallback
+            try:
+                url, _ = cloudinary_url(full_public_id, resource_type='raw', secure=True)
+            except:
+                print(f'⚠️ Erro ao buscar arquivo via API: {api_error}')
+                return None
+        
         if not url:
             return None
         
@@ -228,6 +244,8 @@ def download_file_from_cloudinary(public_id, folder='files', save_path=None):
             
     except Exception as e:
         print(f'❌ Erro ao baixar arquivo: {e}')
+        import traceback
+        traceback.print_exc()
         return None
 
 def get_csv_from_cloudinary(public_id='Tabela de Preço', folder='files', encoding='utf-8-sig'):
@@ -235,7 +253,7 @@ def get_csv_from_cloudinary(public_id='Tabela de Preço', folder='files', encodi
     Busca CSV do Cloudinary e retorna como string
     
     Args:
-        public_id: ID público do arquivo CSV (sem extensão)
+        public_id: ID público do arquivo CSV (pode ser com ou sem extensão)
         folder: Pasta no Cloudinary (padrão: 'files')
         encoding: Encoding do arquivo (padrão: 'utf-8-sig')
     
@@ -243,12 +261,33 @@ def get_csv_from_cloudinary(public_id='Tabela de Preço', folder='files', encodi
         String com conteúdo do CSV ou None se erro
     """
     try:
-        content = download_file_from_cloudinary(public_id, folder=folder)
-        if content:
-            return content.decode(encoding)
+        # Lista de variações para tentar (priorizar com extensão .csv)
+        variations = []
+        
+        # Se não tem extensão, adicionar .csv primeiro (mais comum)
+        if not public_id.endswith('.csv'):
+            variations.append(f'{public_id}.csv')
+            variations.append(public_id)  # Tentar sem extensão também
+        else:
+            # Se já tem extensão, tentar primeiro com extensão
+            variations.append(public_id)
+            variations.append(public_id[:-4])  # Tentar sem extensão
+        
+        # Tentar cada variação
+        for variant in variations:
+            try:
+                content = download_file_from_cloudinary(variant, folder=folder)
+                if content:
+                    return content.decode(encoding)
+            except Exception as e:
+                # Continuar tentando outras variações
+                continue
+        
         return None
     except Exception as e:
         print(f'❌ Erro ao ler CSV do Cloudinary: {e}')
+        import traceback
+        traceback.print_exc()
         return None
 
 def upload_csv_to_cloudinary(file_path, public_id='Tabela de Preço', folder='files'):
