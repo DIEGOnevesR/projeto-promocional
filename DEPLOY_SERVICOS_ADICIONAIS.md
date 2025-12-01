@@ -164,5 +164,8 @@ Agora todos os serviços estão no ar:
 
 
 
+<<<<<<< HEAD
+=======
 
 
+>>>>>>> origin/master

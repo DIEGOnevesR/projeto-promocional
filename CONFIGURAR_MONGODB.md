@@ -132,5 +132,8 @@ Se você já tem uma sessão local:
 
 
 
+<<<<<<< HEAD
+=======
 
 
+>>>>>>> origin/master

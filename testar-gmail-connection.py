@@ -84,5 +84,8 @@ except Exception as e:
 
 
 
+<<<<<<< HEAD
+=======
 
 
+>>>>>>> origin/master

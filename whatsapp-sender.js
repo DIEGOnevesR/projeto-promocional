@@ -1,101 +1,10 @@
-// ============================================================================
-// LOG INICIAL - DEVE APARECER PRIMEIRO NOS LOGS DO RENDER
-// ============================================================================
-// Este é o primeiro log que deve aparecer quando o arquivo é executado
-// Se este log não aparecer, significa que o arquivo não está sendo executado
-process.stdout.write('\n');
-process.stdout.write('═══════════════════════════════════════════════════════════\n');
-process.stdout.write('🚀 ARQUIVO whatsapp-sender.js INICIADO\n');
-process.stdout.write('═══════════════════════════════════════════════════════════\n');
-process.stdout.write(`Timestamp: ${new Date().toISOString()}\n`);
-process.stdout.write(`Node version: ${process.version}\n`);
-process.stdout.write(`Working directory: ${process.cwd()}\n`);
-process.stdout.write(`Process ID: ${process.pid}\n`);
-process.stdout.write('═══════════════════════════════════════════════════════════\n');
-process.stdout.write('📦 CARREGANDO MÓDULOS...\n');
-process.stdout.write('═══════════════════════════════════════════════════════════\n');
-process.stdout.write('\n');
+const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
+const qrcode = require('qrcode-terminal');
+const express = require('express');
+const fs = require('fs');
+const path = require('path');
 
-// Também usar console.log para garantir que apareça
-console.log('\n═══════════════════════════════════════════════════════════');
-console.log('🚀 ARQUIVO whatsapp-sender.js INICIADO');
-console.log('═══════════════════════════════════════════════════════════');
-console.log(`Timestamp: ${new Date().toISOString()}`);
-console.log(`Node version: ${process.version}`);
-console.log(`Working directory: ${process.cwd()}`);
-console.log(`Process ID: ${process.pid}`);
-console.log('═══════════════════════════════════════════════════════════');
-console.log('📦 CARREGANDO MÓDULOS...');
-console.log('═══════════════════════════════════════════════════════════\n');
-
-let Client, LocalAuth, RemoteAuth, MessageMedia;
-let MongoStore;
-let qrcode;
-let express;
-let fs, path;
-let app;
-
-try {
-    console.log('🔄 Carregando whatsapp-web.js...');
-    ({ Client, LocalAuth, RemoteAuth, MessageMedia } = require('whatsapp-web.js'));
-    console.log('✅ whatsapp-web.js carregado');
-} catch (err) {
-    console.error('❌ ERRO ao carregar whatsapp-web.js:', err.message);
-    console.error('Stack:', err.stack);
-    process.exit(1);
-}
-
-try {
-    console.log('🔄 Carregando mongo-store...');
-    MongoStore = require('./mongo-store');
-    console.log('✅ mongo-store carregado');
-} catch (err) {
-    console.error('❌ ERRO ao carregar mongo-store:', err.message);
-    console.error('Stack:', err.stack);
-    console.log('⚠️ Continuando sem mongo-store (usará LocalAuth)...');
-    MongoStore = null;
-}
-
-try {
-    console.log('🔄 Carregando qrcode-terminal...');
-    qrcode = require('qrcode-terminal');
-    console.log('✅ qrcode-terminal carregado');
-} catch (err) {
-    console.error('❌ ERRO ao carregar qrcode-terminal:', err.message);
-    console.error('Stack:', err.stack);
-    process.exit(1);
-}
-
-try {
-    console.log('🔄 Carregando express...');
-    express = require('express');
-    console.log('✅ express carregado');
-} catch (err) {
-    console.error('❌ ERRO ao carregar express:', err.message);
-    console.error('Stack:', err.stack);
-    process.exit(1);
-}
-
-try {
-    console.log('🔄 Carregando fs e path...');
-    fs = require('fs');
-    path = require('path');
-    console.log('✅ fs e path carregados\n');
-} catch (err) {
-    console.error('❌ ERRO ao carregar fs/path:', err.message);
-    console.error('Stack:', err.stack);
-    process.exit(1);
-}
-
-try {
-    console.log('🔄 Criando Express app...');
-    app = express();
-    console.log('✅ Express app criado\n');
-} catch (err) {
-    console.error('❌ ERRO ao criar Express app:', err.message);
-    console.error('Stack:', err.stack);
-    process.exit(1);
-}
+const app = express();
 
 // Configurar CORS para permitir requisições do frontend
 app.use((req, res, next) => {
@@ -117,153 +26,17 @@ app.use(express.json());
 const WHATSAPP_NUMBER = process.env.WHATSAPP_NUMBER || '5534999499430@c.us';
 const WHATSAPP_LINK = 'wa.me/551151944697?text=oi';
 
-// Configuração MongoDB para RemoteAuth
-const MONGODB_URI = process.env.MONGODB_URI || process.env.MONGO_URI || 'mongodb://localhost:27017';
-const MONGODB_DB_NAME = process.env.MONGODB_DB_NAME || 'whatsapp-sessions';
-const USE_REMOTE_AUTH = process.env.USE_REMOTE_AUTH === 'true' || !!process.env.MONGODB_URI;
-
 let client = null;
 let isReady = false;
-let serverRunning = false;
-let currentQR = null;
-const serverLogs = [];
-const MAX_SERVER_LOGS = 500;
-
-function addLog(type, message) {
-    const entry = {
-        timestamp: new Date().toISOString(),
-        type,
-        message,
-    };
-    
-    serverLogs.push(entry);
-    if (serverLogs.length > MAX_SERVER_LOGS) {
-        serverLogs.splice(0, serverLogs.length - MAX_SERVER_LOGS);
-    }
-    
-    const emojiMap = {
-        INFO: 'ℹ️',
-        QR_CODE: '📱',
-        READY: '✅',
-        AUTHENTICATED: '🔐',
-        AUTH_FAILURE: '❌',
-        DISCONNECTED: '⚠️',
-        RECONNECT: '🔄',
-        LOGOUT: '🚪',
-        ERROR: '⛔',
-    };
-    
-    const emoji = emojiMap[type] || '📝';
-    const time = new Date().toLocaleTimeString('pt-BR', { hour12: false });
-    const logMessage = `[${time}] ${emoji} ${message}`;
-    
-    if (type === 'ERROR' || type === 'AUTH_FAILURE') {
-        console.error(logMessage);
-    } else {
-        console.log(logMessage);
-    }
-    
-    return entry;
-}
-
-async function stopWhatsAppClient() {
-    if (!client) {
-        serverRunning = false;
-        isReady = false;
-        currentQR = null;
-        return;
-    }
-    
-    serverRunning = false;
-    
-    try {
-        await client.destroy();
-    } catch (error) {
-        addLog('ERROR', `Erro ao destruir cliente WhatsApp: ${error.message}`);
-    } finally {
-        client = null;
-        isReady = false;
-        currentQR = null;
-    }
-}
 
 // Inicializar cliente WhatsApp
-async function initializeWhatsApp() {
-    console.log('\n🔍 [DEBUG] initializeWhatsApp() chamada');
-    console.log(`   client existe: ${!!client}`);
-    console.log(`   serverRunning: ${serverRunning}`);
-    
-    if (client) {
-        addLog('INFO', 'Cliente WhatsApp já está inicializado.');
-        console.log('⚠️ [DEBUG] Cliente já existe, retornando...');
-        return;
-    }
-    
-    console.log('✅ [DEBUG] Iniciando novo cliente...');
-    addLog('INFO', 'Inicializando cliente WhatsApp...');
-    serverRunning = true;
-    isReady = false;
-    currentQR = null;
-    
-    // Escolher estratégia de autenticação
-    let authStrategy;
-    if (USE_REMOTE_AUTH) {
-        addLog('INFO', 'Tentando usar RemoteAuth com MongoDB...');
-        try {
-            const mongoStore = new MongoStore({
-                uri: MONGODB_URI,
-                dbName: MONGODB_DB_NAME,
-                collectionName: 'whatsapp_sessions',
-            });
-            
-            // Testar conexão antes de usar
-            try {
-                await mongoStore.connect();
-                addLog('INFO', '✅ Conectado ao MongoDB com sucesso');
-            } catch (mongoError) {
-                addLog('ERROR', `Erro ao conectar ao MongoDB: ${mongoError.message}`);
-                addLog('INFO', 'Falling back para LocalAuth devido a erro de conexão');
-                throw mongoError; // Força fallback
-            }
-            
-            // Configurar RemoteAuth com backup mínimo (60000ms = 1 minuto)
-            // O RemoteAuth requer pelo menos 60000ms, mas não usamos dataPath
-            // para evitar problemas com ZIP no Render (filesystem efêmero)
-            try {
-                authStrategy = new RemoteAuth({
-                    store: mongoStore,
-                    backupSyncIntervalMs: 60000, // Mínimo aceito: 1 minuto
-                    // Não usar dataPath para evitar problemas com ZIP
-                });
-                addLog('INFO', 'RemoteAuth configurado com MongoDB (backup mínimo)');
-            } catch (authError) {
-                addLog('ERROR', `Erro ao configurar RemoteAuth: ${authError.message}`);
-                throw authError;
-            }
-            
-            // Ocultar senha na URL para logs
-            const safeUri = MONGODB_URI.replace(/\/\/([^:]+):([^@]+)@/, '//$1:***@');
-            addLog('INFO', `MongoDB configurado: ${safeUri}/${MONGODB_DB_NAME}`);
-        } catch (error) {
-            addLog('ERROR', `Erro ao configurar MongoDB: ${error.message}`);
-            addLog('INFO', 'Usando LocalAuth como fallback (sessão não será persistida)');
-            authStrategy = new LocalAuth({
-                dataPath: './whatsapp-auth'
-            });
-        }
-    } else {
-        addLog('INFO', 'Usando LocalAuth (armazenamento local)');
-        authStrategy = new LocalAuth({
-            dataPath: './whatsapp-auth'
-        });
-    }
-    
-    console.log('🔧 [DEBUG] Criando instância do Client...');
-    console.log(`   authStrategy: ${authStrategy ? 'Configurado' : 'Não configurado'}`);
-    console.log(`   authStrategy type: ${authStrategy?.constructor?.name || 'N/A'}`);
+function initializeWhatsApp() {
+    console.log('🚀 Iniciando cliente WhatsApp...');
     
     client = new Client({
-        authStrategy: authStrategy,
+        authStrategy: new LocalAuth({
+            dataPath: './whatsapp-auth'
+        }),
         puppeteer: {
             headless: true,
             args: [
@@ -292,42 +65,30 @@ async function initializeWhatsApp() {
                 '--safebrowsing-disable-auto-update',
                 '--password-store=basic',
                 '--use-mock-keychain',
+                // Removido --single-process e --no-zygote (causam alto uso de CPU)
+                // Removido --disable-accelerated-2d-canvas (pode melhorar performance)
+                // Removido --enable-automation (desnecessário)
+                // Removido --metrics-recording-only (reduzido para apenas o necessário)
                 '--disable-ipc-flooding-protection',
                 '--disable-hang-monitor',
                 '--disable-offer-store-unmasked-wallet-cards',
                 '--memory-pressure-off',
                 '--max-old-space-size=512',
                 '--disable-web-security',
+                // IMPORTANTE: --single-process e --no-zygote foram removidos (causam alto uso de CPU)
             ],
             ignoreHTTPSErrors: true,
             timeout: 60000,
-            defaultViewport: { width: 800, height: 600 },
-            // Configurações adicionais para evitar erros do Puppeteer
-            handleSIGINT: false,
-            handleSIGTERM: false,
-            handleSIGHUP: false,
-            // Reduzir uso de memória
-            protocolTimeout: 120000, // 2 minutos
-            // Ignorar erros de página
-            ignoreDefaultArgs: ['--disable-extensions']
+            // Limitar recursos para reduzir consumo de CPU
+            defaultViewport: { width: 800, height: 600 }
         },
         webVersionCache: {
             type: 'remote',
             remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54-beta.html',
         }
     });
-    
-    console.log('✅ [DEBUG] Client criado com sucesso');
-    console.log(`   client existe: ${!!client}`);
-
-    let reconnectAttempts = 0;
-    const maxReconnectAttempts = 5;
-    const reconnectDelays = [5000, 10000, 20000, 30000, 60000];
 
     client.on('qr', (qr) => {
-        currentQR = qr;
-        isReady = false;
-        addLog('QR_CODE', 'Novo QR Code disponível. Escaneie para conectar.');
         console.log('\n📱 ========================================');
         console.log('📱 ESCANEIE O QR CODE COM SEU WHATSAPP:');
         console.log('📱 ========================================\n');
@@ -336,145 +97,59 @@ async function initializeWhatsApp() {
     });
 
     client.on('ready', () => {
+        console.log('✅ Cliente WhatsApp pronto!');
+        console.log(`📞 Número configurado: ${WHATSAPP_NUMBER}`);
         isReady = true;
-        currentQR = null;
-        reconnectAttempts = 0;
-        addLog('READY', 'Cliente WhatsApp pronto!');
-        addLog('INFO', `Número configurado: ${WHATSAPP_NUMBER}`);
     });
 
     client.on('authenticated', () => {
-        addLog('AUTHENTICATED', 'Autenticado com sucesso!');
-    });
-    
-    // Capturar erros do cliente (incluindo erros de backup e Puppeteer)
-    client.on('error', (error) => {
-        // Ignorar erros relacionados a backup ZIP (não são críticos)
-        if (error.message && error.message.includes('RemoteAuth.zip')) {
-            addLog('WARN', 'Aviso sobre backup ZIP (não crítico): ' + error.message);
-            return; // Não tratar como erro crítico
-        }
-        
-        // Tratar erros do Puppeteer de forma mais suave
-        if (error.message && (error.message.includes('JSHandle') || error.message.includes('evaluate') || error.message.includes('puppeteer'))) {
-            addLog('WARN', `Aviso do Puppeteer (pode ser temporário): ${error.message}`);
-            // Não encerrar o cliente por erros do Puppeteer
-            return;
-        }
-        
-        addLog('ERROR', `Erro no cliente WhatsApp: ${error.message}`);
-        if (error.stack) {
-            addLog('ERROR', `Stack: ${error.stack.split('\n').slice(0, 3).join('\n')}`);
-        }
+        console.log('✅ Autenticado com sucesso!');
     });
 
     client.on('auth_failure', (msg) => {
+        console.error('❌ Falha na autenticação:', msg);
         isReady = false;
-        currentQR = null;
-        addLog('AUTH_FAILURE', `Falha na autenticação: ${msg}`);
     });
 
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 5;
+    const reconnectDelays = [5000, 10000, 20000, 30000, 60000]; // Backoff exponencial
+
     client.on('disconnected', (reason) => {
+        console.log('⚠️ Cliente desconectado:', reason);
         isReady = false;
-        currentQR = null;
-        addLog('DISCONNECTED', `Cliente desconectado: ${reason}`);
-        
-        if (!serverRunning) {
-            addLog('INFO', 'Reconexão não executada porque o servidor foi parado manualmente.');
-            return;
-        }
         
         if (reconnectAttempts < maxReconnectAttempts) {
             const delay = reconnectDelays[reconnectAttempts] || 60000;
-            addLog('RECONNECT', `Tentando reconectar em ${delay / 1000}s... (tentativa ${reconnectAttempts + 1}/${maxReconnectAttempts})`);
+            console.log(`🔄 Tentando reconectar em ${delay/1000}s... (tentativa ${reconnectAttempts + 1}/${maxReconnectAttempts})`);
             
-            setTimeout(() => {
+        setTimeout(() => {
                 reconnectAttempts++;
                 try {
-                    client.initialize();
+            client.initialize();
                 } catch (err) {
-                    addLog('ERROR', `Erro ao tentar reconectar: ${err.message}`);
+                    console.error('❌ Erro ao tentar reconectar:', err.message);
                 }
             }, delay);
         } else {
-            addLog('ERROR', 'Número máximo de tentativas de reconexão atingido. Reinicie o servidor manualmente.');
+            console.error('❌ Número máximo de tentativas de reconexão atingido. Por favor, reinicie o servidor manualmente.');
         }
     });
 
-    // client.on('message', ...) // mantido desativado para reduzir uso de CPU
+    client.on('ready', () => {
+        reconnectAttempts = 0; // Resetar contador quando conectar com sucesso
+    });
 
-    // Inicializar cliente com tratamento de erro melhorado
-    console.log('🔄 [DEBUG] Preparando para chamar client.initialize()...');
-    addLog('INFO', 'Inicializando cliente WhatsApp...');
-    
-    try {
-        console.log('🚀 [DEBUG] Chamando client.initialize()...');
-        const initPromise = client.initialize();
-        console.log('✅ [DEBUG] client.initialize() retornou Promise');
-        
-        // Aguardar a inicialização e tratar erros
-        console.log('⏳ [DEBUG] Aguardando resolução da Promise de client.initialize()...');
-        initPromise.then(() => {
-            console.log('✅ [DEBUG] client.initialize() concluído com sucesso');
-            addLog('INFO', 'Cliente WhatsApp inicializado com sucesso');
-            console.log('✅ [DEBUG] Promise resolvida - cliente deve estar pronto ou aguardando QR');
-        }).catch((initError) => {
-            console.error('❌ [DEBUG] Promise REJEITADA - Erro na Promise de client.initialize():', initError.message);
-            console.error('❌ [DEBUG] Stack completo:', initError.stack);
-            console.error('❌ [DEBUG] Erro na Promise de client.initialize():', initError.message);
-            console.error('❌ [DEBUG] Stack:', initError.stack);
-            
-            // Se o erro for relacionado ao RemoteAuth.zip, tentar continuar
-            if (initError.message && initError.message.includes('RemoteAuth.zip')) {
-                addLog('WARN', 'Erro do RemoteAuth.zip durante inicialização (não crítico). Continuando...');
-                console.log('⚠️ [DEBUG] Erro do RemoteAuth.zip ignorado');
-                // Não encerrar o cliente por esse erro
-                return;
-            }
-            
-            addLog('ERROR', `Erro ao inicializar cliente WhatsApp: ${initError.message}`);
-            if (initError.stack) {
-                addLog('ERROR', `Stack: ${initError.stack.split('\n').slice(0, 5).join('\n')}`);
-            }
-            
-            // Tentar reinicializar após um delay
-            console.log('🔄 [DEBUG] Tentando reinicializar após 5 segundos...');
-            setTimeout(() => {
-                console.log('🔄 [DEBUG] Reinicializando cliente...');
-                try {
-                    client.initialize().catch((retryError) => {
-                        console.error('❌ [DEBUG] Erro na reinicialização:', retryError.message);
-                        addLog('ERROR', `Erro na reinicialização: ${retryError.message}`);
-                    });
-                } catch (retryErr) {
-                    console.error('❌ [DEBUG] Erro ao tentar reinicializar:', retryErr.message);
-                    addLog('ERROR', `Erro ao tentar reinicializar: ${retryErr.message}`);
-                }
-            }, 5000);
-        });
-        
-        console.log('✅ [DEBUG] Promise de inicialização configurada');
-    } catch (error) {
-        console.error('❌ [DEBUG] Erro síncrono ao inicializar:', error.message);
-        console.error('❌ [DEBUG] Stack:', error.stack);
-        
-        // Se o erro for relacionado ao RemoteAuth.zip, tentar continuar
-        if (error.message && error.message.includes('RemoteAuth.zip')) {
-            addLog('WARN', 'Erro do RemoteAuth.zip durante inicialização (não crítico). Continuando...');
-            console.log('⚠️ [DEBUG] Erro do RemoteAuth.zip ignorado (sync)');
-            // Não encerrar o cliente por esse erro
-        } else {
-            addLog('ERROR', `Erro ao inicializar cliente WhatsApp: ${error.message}`);
-            console.error('❌ [DEBUG] Erro crítico, limpando cliente');
-            client = null;
-            serverRunning = false;
-            isReady = false;
-            currentQR = null;
-            throw error;
-        }
-    }
-    
-    console.log('✅ [DEBUG] initializeWhatsApp() concluída (retornando)');
+    // Removido o listener de mensagens para reduzir CPU
+    // Se precisar logar mensagens, descomente e use com moderação:
+    // client.on('message', (msg) => {
+    //     if (msg.from !== 'status@broadcast' && msg.body) {
+    //         // Log apenas mensagens importantes (descomente se necessário)
+    //         // console.log(`📨 Mensagem recebida de ${msg.from}: ${msg.body.substring(0, 50)}...`);
+    //     }
+    // });
+
+    client.initialize();
 }
 
 // Endpoint para enviar imagem
@@ -562,53 +237,33 @@ app.get('/status', (req, res) => {
     });
 });
 
-app.get('/server-status', (req, res) => {
-    res.json({
-        success: true,
-        running: serverRunning,
-        ready: isReady,
-        hasQR: Boolean(currentQR),
-        number: isReady ? WHATSAPP_NUMBER : null,
-        link: WHATSAPP_LINK
-    });
-});
-
-app.get('/qr-code', (req, res) => {
-    res.json({
-        success: true,
-        hasQR: Boolean(currentQR),
-        qr: currentQR || null
-    });
-});
-
-app.get('/logs', (req, res) => {
-    const limit = Math.min(parseInt(req.query.limit, 10) || 100, MAX_SERVER_LOGS);
-    const logs = serverLogs.slice(-limit);
-    res.json({
-        success: true,
-        logs
-    });
-});
-
-app.post('/logout', async (req, res) => {
-    if (!client) {
-        return res.status(400).json({
+// Endpoint para deletar sessão do MongoDB (forçar novo QR code)
+app.post('/clear-session', async (req, res) => {
+    if (!USE_REMOTE_AUTH || !MongoStore) {
+        return res.json({
             success: false,
-            error: 'Servidor não está em execução.'
+            message: 'RemoteAuth não está configurado. Use LocalAuth ou configure MongoDB.'
         });
     }
     
     try {
-        await client.logout();
-        addLog('LOGOUT', 'Logout solicitado via API.');
-        await stopWhatsAppClient();
-        initializeWhatsApp();
+        console.log('🗑️ [DEBUG] Deletando sessão do MongoDB via endpoint...');
+        const mongoStore = new MongoStore({
+            uri: MONGODB_URI,
+            dbName: MONGODB_DB_NAME,
+            collectionName: 'whatsapp_sessions',
+        });
+        await mongoStore.connect();
+        await mongoStore.delete({ session: 'default' });
+        await mongoStore.close();
+        
+        console.log('✅ [DEBUG] Sessão deletada com sucesso!');
         res.json({
             success: true,
-            message: 'Logout realizado. Escaneie o novo QR Code para conectar.'
+            message: 'Sessão deletada. Reinicie o serviço para gerar novo QR code.'
         });
     } catch (error) {
-        addLog('ERROR', `Erro ao fazer logout: ${error.message}`);
+        console.error('❌ [DEBUG] Erro ao deletar sessão:', error.message);
         res.status(500).json({
             success: false,
             error: error.message
@@ -616,56 +271,65 @@ app.post('/logout', async (req, res) => {
     }
 });
 
-app.post('/server-control', async (req, res) => {
-    const action = req.body?.action;
-    
-    if (action === 'start') {
-        if (serverRunning && client) {
-            return res.json({
-                success: false,
-                error: 'Servidor já está em execução.'
-            });
+// Endpoint para forçar reset completo: deletar sessão e reinicializar
+app.post('/force-reset', async (req, res) => {
+    try {
+        console.log('🔄 [FORCE-RESET] Iniciando reset forçado do WhatsApp...');
+        addLog('INFO', 'Reset forçado iniciado - deletando sessão e reinicializando...');
+        
+        // 1. Parar cliente atual se existir
+        if (client) {
+            console.log('🛑 [FORCE-RESET] Parando cliente atual...');
+            try {
+                await client.destroy();
+            } catch (destroyError) {
+                console.warn('⚠️ [FORCE-RESET] Erro ao destruir cliente (continuando):', destroyError.message);
+            }
+            client = null;
+            isReady = false;
+            currentQR = null;
         }
         
-        try {
-            initializeWhatsApp();
-            res.json({
-                success: true,
-                message: 'Servidor iniciado. Aguarde o QR Code para conectar.'
-            });
-        } catch (error) {
-            addLog('ERROR', `Erro ao iniciar servidor via API: ${error.message}`);
-            res.status(500).json({
-                success: false,
-                error: error.message
-            });
-        }
-    } else if (action === 'stop') {
-        if (!client && !serverRunning) {
-            return res.json({
-                success: false,
-                error: 'Servidor já está parado.'
-            });
+        // 2. Deletar sessão do MongoDB se estiver usando RemoteAuth
+        if (USE_REMOTE_AUTH && MongoStore) {
+            console.log('🗑️ [FORCE-RESET] Deletando sessão do MongoDB...');
+            try {
+                const mongoStore = new MongoStore({
+                    uri: MONGODB_URI,
+                    dbName: MONGODB_DB_NAME,
+                    collectionName: 'whatsapp_sessions',
+                });
+                await mongoStore.connect();
+                await mongoStore.delete({ session: 'default' });
+                await mongoStore.close();
+                console.log('✅ [FORCE-RESET] Sessão deletada do MongoDB');
+                addLog('INFO', 'Sessão deletada do MongoDB');
+            } catch (mongoError) {
+                console.error('❌ [FORCE-RESET] Erro ao deletar sessão do MongoDB:', mongoError.message);
+                addLog('ERROR', `Erro ao deletar sessão: ${mongoError.message}`);
+                // Continuar mesmo se falhar
+            }
         }
         
-        try {
-            await stopWhatsAppClient();
-            addLog('INFO', 'Servidor parado via API.');
-            res.json({
-                success: true,
-                message: 'Servidor parado com sucesso.'
-            });
-        } catch (error) {
-            addLog('ERROR', `Erro ao parar servidor via API: ${error.message}`);
-            res.status(500).json({
-                success: false,
-                error: error.message
-            });
-        }
-    } else {
-        res.status(400).json({
+        // 3. Reinicializar cliente (vai gerar novo QR code)
+        console.log('🔄 [FORCE-RESET] Reinicializando cliente...');
+        addLog('INFO', 'Reinicializando cliente WhatsApp...');
+        
+        // Reinicializar em background (não bloquear resposta)
+        initializeWhatsApp().catch((initError) => {
+            console.error('❌ [FORCE-RESET] Erro ao reinicializar:', initError.message);
+            addLog('ERROR', `Erro ao reinicializar: ${initError.message}`);
+        });
+        
+        res.json({
+            success: true,
+            message: 'Reset forçado concluído. Cliente está sendo reinicializado. Aguarde o QR code aparecer.'
+        });
+    } catch (error) {
+        console.error('❌ [FORCE-RESET] Erro no reset forçado:', error.message);
+        res.status(500).json({
             success: false,
-            error: 'Ação inválida. Use "start" ou "stop".'
+            error: error.message
         });
     }
 });
@@ -703,30 +367,19 @@ app.get('/list-groups', async (req, res) => {
 
         console.log('📋 Listando grupos do WhatsApp... (pode levar alguns segundos)');
         
-        // Limitar tempo de execução (aumentado para 90 segundos)
+        // Limitar tempo de execução
         const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Timeout ao listar grupos (90s)')), 90000)
+            setTimeout(() => reject(new Error('Timeout ao listar grupos')), 45000)
         );
-        
-        console.log('⏳ Aguardando resposta do WhatsApp...');
-        const startTime = Date.now();
         
         const getChatsPromise = client.getChats();
         const chats = await Promise.race([getChatsPromise, timeoutPromise]);
         
-        const elapsedTime = ((Date.now() - startTime) / 1000).toFixed(1);
-        console.log(`✅ Chats recebidos em ${elapsedTime}s. Total: ${chats.length} chat(s)`);
-        
         const groups = [];
         let processed = 0;
-        let totalChats = chats.length;
-        
-        console.log(`🔄 Processando ${totalChats} chat(s) para encontrar grupos...`);
 
         // Processar em lotes menores com pausas maiores
-        for (let i = 0; i < chats.length; i++) {
-            const chat = chats[i];
-            
+        for (const chat of chats) {
             if (chat.isGroup && processed < MAX_GROUPS) {
                 try {
                     const participants = chat.participants ? chat.participants.length : 0;
@@ -737,16 +390,11 @@ app.get('/list-groups', async (req, res) => {
                         isGroup: true
                     });
                     processed++;
-                    
-                    // Log de progresso a cada 50 grupos
-                    if (processed % 50 === 0) {
-                        console.log(`📊 Progresso: ${processed} grupo(s) encontrado(s) de ${i + 1}/${totalChats} chat(s) processado(s)`);
-                    }
                 } catch (err) {
                     // Silenciar erros individuais para não sobrecarregar logs
                     if (processed === 0) {
-                        console.warn(`⚠️ Erro ao processar grupo: ${err.message}`);
-                    }
+                    console.warn(`⚠️ Erro ao processar grupo: ${err.message}`);
+                }
                 }
             }
             
@@ -760,8 +408,6 @@ app.get('/list-groups', async (req, res) => {
                 await new Promise(resolve => setTimeout(resolve, 200));
             }
         }
-        
-        console.log(`✅ Processamento concluído: ${groups.length} grupo(s) encontrado(s) de ${totalChats} chat(s)`);
 
         // Ordenar por nome
         groups.sort((a, b) => a.name.localeCompare(b.name));
@@ -781,23 +427,9 @@ app.get('/list-groups', async (req, res) => {
 
     } catch (error) {
         console.error('❌ Erro ao listar grupos:', error.message);
-        console.error('📊 Detalhes do erro:', {
-            name: error.name,
-            message: error.message,
-            stack: error.stack?.split('\n').slice(0, 3).join('\n')
-        });
-        
-        // Se for timeout, sugerir tentar novamente
-        if (error.message.includes('Timeout')) {
-            addLog('ERROR', `Timeout ao listar grupos. O WhatsApp pode estar lento. Tente novamente em alguns segundos.`);
-        }
-        
         res.status(500).json({
             success: false,
-            error: error.message,
-            suggestion: error.message.includes('Timeout') 
-                ? 'O WhatsApp está demorando para responder. Tente novamente em alguns segundos.' 
-                : 'Verifique se o cliente WhatsApp está conectado e funcionando.'
+            error: error.message
         });
     }
 });
@@ -984,108 +616,6 @@ app.post('/send-text-to-group', async (req, res) => {
     }
 });
 
-// Função auxiliar para esperar ACK (entrega) de uma mensagem
-function waitForAck(message, timeoutMs = 20000) {
-    return new Promise((resolve) => {
-        let resolved = false;
-        let initialAck = typeof message.ack === 'number' ? message.ack : null;
-        let ackChanged = false; // Flag para verificar se ACK mudou
-        const MIN_WAIT_TIME = 5000; // Aguardar pelo menos 5 segundos antes de considerar entregue
-        const startTime = Date.now();
-
-        const messageId = message.id && message.id._serialized ? message.id._serialized : 
-                         (message.id ? String(message.id) : null);
-
-        if (!messageId) {
-            console.log(`⚠️ Não foi possível obter ID da mensagem, considerando não entregue`);
-            return resolve({ delivered: false, ack: null });
-        }
-
-        console.log(`⏳ Aguardando confirmação de entrega (dois ticks) para mensagem ID: ${messageId}`);
-        console.log(`   ACK inicial: ${initialAck} (0=pendente, 1=servidor/um tick, 2=entregue/dois ticks, 3=lido)`);
-        console.log(`   Aguardando pelo menos ${MIN_WAIT_TIME/1000}s e até ${timeoutMs/1000}s...`);
-
-        // Handler para evento de ACK
-        function onAck(msg, ack) {
-            try {
-                if (resolved) return;
-                
-                const msgId = msg.id && msg.id._serialized ? msg.id._serialized : 
-                             (msg.id ? String(msg.id) : null);
-                
-                if (!msgId) return;
-
-                // Comparar IDs (pode ser string ou objeto)
-                const msgIdStr = String(msgId);
-                const messageIdStr = String(messageId);
-                
-                // Verificar se é a mesma mensagem (comparação mais flexível)
-                const isSameMessage = msgIdStr === messageIdStr || 
-                                     msgIdStr.includes(messageIdStr) || 
-                                     messageIdStr.includes(msgIdStr);
-                
-                if (isSameMessage) {
-                    const elapsed = Date.now() - startTime;
-                    console.log(`📨 ACK recebido para mensagem: ack=${ack}, msgId=${msgIdStr}, tempo=${(elapsed/1000).toFixed(1)}s`);
-                    
-                    // ack: 0=pendente, 1=servidor (um tick), 2=entregue (dois ticks), 3=lido (dois ticks azuis)
-                    if (typeof ack === 'number' && ack >= 2) {
-                        // ACK >= 2 = entregue ao dispositivo (dois ticks) ou lido
-                        // Verificar se ACK mudou de 0/1 para 2+ (confirmação real de entrega)
-                        if (initialAck === 0 || initialAck === 1 || initialAck === null) {
-                            ackChanged = true;
-                        }
-                        
-                        // Aguardar tempo mínimo antes de considerar entregue
-                        const elapsedTime = Date.now() - startTime;
-                        if (elapsedTime >= MIN_WAIT_TIME) {
-                            // Se passou o tempo mínimo E ACK >= 2, considerar entregue
-                            if (ackChanged || (initialAck === null && ack >= 2)) {
-                                resolved = true;
-                                client.removeListener('message_ack', onAck);
-                                const ackStatus = ack === 2 ? 'entregue (dois ticks)' : ack === 3 ? 'lido (dois ticks azuis)' : 'entregue';
-                                console.log(`✅ Mensagem confirmada como ENTREGUE (ack=${ack}=${ackStatus}, tempo=${(elapsedTime/1000).toFixed(1)}s)`);
-                                resolve({ delivered: true, ack });
-                            } else {
-                                console.log(`⏳ ACK=${ack} mas ainda aguardando tempo mínimo...`);
-                            }
-                        } else {
-                            console.log(`⏳ ACK=${ack} recebido mas aguardando tempo mínimo (${(elapsedTime/1000).toFixed(1)}s/${MIN_WAIT_TIME/1000}s)...`);
-                        }
-                    } else if (typeof ack === 'number' && ack === 1) {
-                        // ACK 1 = apenas enviado ao servidor (um tick), ainda não entregue
-                        console.log(`⏳ Mensagem enviada ao servidor mas ainda não entregue (ack=1, um tick apenas)`);
-                    } else if (typeof ack === 'number' && ack === 0) {
-                        // ACK 0 = pendente, ainda não enviado
-                        console.log(`⏳ Mensagem pendente (ack=0)`);
-                    }
-                }
-            } catch (e) {
-                console.error(`❌ Erro no handler de ACK: ${e.message}`);
-            }
-        }
-
-        client.on('message_ack', onAck);
-
-        // Timeout: se não tiver ack >=2 confirmado em X segundos, consideramos não entregue
-        setTimeout(() => {
-            if (!resolved) {
-                resolved = true;
-                client.removeListener('message_ack', onAck);
-                const finalAck = typeof message.ack === 'number' ? message.ack : null;
-                const elapsed = Date.now() - startTime;
-                console.log(`⏰ Timeout após ${(elapsed/1000).toFixed(1)}s. Mensagem NÃO confirmada como entregue`);
-                console.log(`   ACK final: ${finalAck} (0=pendente, 1=servidor/um tick, 2+=entregue/dois ticks)`);
-                console.log(`   ACK mudou para >=2: ${ackChanged}`);
-                resolve({ 
-                    delivered: false, 
-                    ack: finalAck
-                });
-            }
-        }, timeoutMs);
-    });
-}
-
 // Endpoint para enviar apenas texto para contato individual
 app.post('/send-text-to-contact', async (req, res) => {
     try {
@@ -1118,30 +648,14 @@ app.post('/send-text-to-contact', async (req, res) => {
         // Enviar mensagem de texto para o contato
         console.log(`📤 Enviando texto para contato ${formattedId}`);
         const chat = await client.getChatById(formattedId);
-        const sentMessage = await chat.sendMessage(text);
+        await chat.sendMessage(text);
 
-        const messageId = sentMessage.id ? sentMessage.id._serialized || sentMessage.id : null;
-
-        // Esperar ACK de entrega (dois ticks) com timeout de 20 segundos
-        // Aguarda pelo menos 5 segundos para garantir que é realmente dois ticks
-        console.log(`⏳ Aguardando confirmação de entrega (dois ticks)...`);
-        const ackResult = await waitForAck(sentMessage, 20000);
-
-        if (ackResult.delivered) {
-            const ackStatus = ackResult.ack === 2 ? 'entregue (dois ticks)' : ackResult.ack === 3 ? 'lido (dois ticks azuis)' : 'entregue';
-            console.log(`✅ Texto entregue para ${formattedId} | Status: ${ackStatus} (ack: ${ackResult.ack})`);
-        } else {
-            const ackDesc = ackResult.ack === 0 ? 'pendente' : ackResult.ack === 1 ? 'servidor/um tick' : 'desconhecido';
-            console.log(`⚠️ Texto enviado para ${formattedId} mas não confirmado como entregue (ack: ${ackResult.ack || 'null'} = ${ackDesc})`);
-        }
+        console.log(`✅ Texto enviado com sucesso para o contato: ${formattedId}`);
 
         res.json({
             success: true,
-            message: 'Texto enviado',
-            contactId: formattedId,
-            messageId: messageId,
-            ack: ackResult.ack,
-            delivered: ackResult.delivered
+            message: 'Texto enviado com sucesso',
+            contactId: formattedId
         });
 
     } catch (error) {
@@ -1769,26 +1283,66 @@ app.get('/list-contacts', async (req, res) => {
 
         console.log('📋 Listando contatos do WhatsApp... (pode levar alguns segundos)');
         
-        // Limitar tempo de execução
+        // Limitar tempo de execução (aumentado para 90 segundos)
         const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Timeout ao listar contatos')), 45000)
+            setTimeout(() => reject(new Error('Timeout ao listar contatos (90s)')), 90000)
         );
         
-        const getContactsPromise = client.getContacts();
-        const contacts = await Promise.race([getContactsPromise, timeoutPromise]);
+        console.log('⏳ Aguardando resposta do WhatsApp para contatos...');
+        const startTime = Date.now();
+        
+        let contacts;
+        try {
+            // Tentar usar getContacts() primeiro
+            const getContactsPromise = client.getContacts();
+            contacts = await Promise.race([getContactsPromise, timeoutPromise]);
+        } catch (contactsError) {
+            console.warn('⚠️ Erro ao usar getContacts(), tentando alternativa via getChats()...');
+            console.warn('   Erro:', contactsError.message);
+            
+            // Fallback: usar getChats() e filtrar contatos individuais
+            try {
+                const getChatsPromise = client.getChats();
+                const chats = await Promise.race([
+                    getChatsPromise,
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout ao listar chats')), 90000))
+                ]);
+                
+                // Filtrar apenas chats individuais (não grupos)
+                contacts = chats.filter(chat => !chat.isGroup && chat.isUser);
+                console.log(`✅ Usando fallback: ${contacts.length} contato(s) encontrado(s) via getChats()`);
+            } catch (chatsError) {
+                console.error('❌ Erro também no fallback getChats():', chatsError.message);
+                throw new Error(`Não foi possível listar contatos. Erro original: ${contactsError.message}. Erro fallback: ${chatsError.message}`);
+            }
+        }
+        
+        const elapsedTime = ((Date.now() - startTime) / 1000).toFixed(1);
+        console.log(`✅ Contatos recebidos em ${elapsedTime}s. Total: ${contacts.length} contato(s)`);
         
         const contactsList = [];
         let processed = 0;
 
         // Processar em lotes com pausas para reduzir carga de CPU
         for (const contact of contacts) {
-            if (contact.isUser && !contact.isGroup && processed < MAX_CONTACTS) {
+            // Verificar se é um contato individual (não grupo)
+            if (!contact.isGroup && processed < MAX_CONTACTS) {
                 try {
+                    // Tentar obter informações do contato de forma segura
+                    const contactId = contact.id?._serialized || contact.id || '';
+                    const contactName = contact.pushname || contact.name || contact.number || 'Sem nome';
+                    const contactNumber = contact.number || contactId.replace('@c.us', '') || '';
+                    
+                    // Pular se não tiver ID válido
+                    if (!contactId) {
+                        continue;
+                    }
+                    
                     contactsList.push({
-                        id: contact.id._serialized,
-                        name: contact.pushname || contact.name || contact.number || 'Sem nome',
-                        number: contact.number || '',
-                        isUser: contact.isUser
+                        id: contactId,
+                        name: contactName,
+                        number: contactNumber,
+                        isUser: contact.isUser !== false // Assumir que é usuário se não for grupo
                     });
                     processed++;
                 } catch (err) {
@@ -1816,7 +1370,8 @@ app.get('/list-contacts', async (req, res) => {
         contactsCache = contactsList;
         contactsCacheTimestamp = now;
 
-        console.log(`✅ ${contactsList.length} contato(s) encontrado(s)`);
+        const elapsedTime = ((Date.now() - startTime) / 1000).toFixed(1);
+        console.log(`✅ ${contactsList.length} contato(s) encontrado(s) em ${elapsedTime}s`);
 
         res.json({
             success: true,
@@ -1840,27 +1395,6 @@ process.on('uncaughtException', (err) => {
     console.error('Erro:', err.message);
     console.error('Stack:', err.stack);
     console.error('\n═══════════════════════════════════════════════════════════\n');
-    
-    // Tratar erro específico do RemoteAuth.zip
-    if (err.message && err.message.includes('RemoteAuth.zip')) {
-        console.log('🔧 SOLUÇÃO PARA ERRO RemoteAuth.zip:\n');
-        console.log('Este erro ocorre quando o RemoteAuth tenta criar um backup ZIP.');
-        console.log('O diretório de backup será criado automaticamente.\n');
-        
-        // Tentar criar o diretório e continuar
-        const backupDir = path.join(process.cwd(), 'whatsapp-auth-remote');
-        try {
-            if (!fs.existsSync(backupDir)) {
-                fs.mkdirSync(backupDir, { recursive: true });
-                console.log(`✅ Diretório criado: ${backupDir}`);
-            }
-            console.log('⚠️ Continuando execução apesar do erro...\n');
-            return; // Não encerrar o processo
-        } catch (mkdirError) {
-            console.error('❌ Não foi possível criar o diretório:', mkdirError.message);
-        }
-    }
-    
     console.log('O servidor será fechado devido a um erro crítico.\n');
     console.log('Pressione qualquer tecla para sair...\n');
     setTimeout(() => process.exit(1), 5000);
@@ -1872,68 +1406,29 @@ process.on('unhandledRejection', (reason, promise) => {
     console.error('\n═══════════════════════════════════════════════════════════\n');
 });
 
-// Iniciar servidor HTTP primeiro (Render precisa disso para detectar que o serviço está ativo)
+// Inicializar WhatsApp
+try {
+    initializeWhatsApp();
+} catch (err) {
+    console.error('\n❌❌❌ ERRO AO INICIALIZAR WHATSAPP ❌❌❌\n');
+    console.error('Erro:', err.message);
+    console.error('Stack:', err.stack);
+    console.error('\n═══════════════════════════════════════════════════════════\n');
+    console.log('Verifique se todas as dependências estão instaladas:');
+    console.log('  npm install\n');
+    process.exit(1);
+}
+
+// Iniciar servidor
 const PORT = process.env.PORT || 3001;
 
 try {
-    // Log imediato antes de iniciar o servidor
-    console.log('🔧 Preparando para iniciar servidor HTTP...');
-    console.log(`   Porta: ${PORT}`);
-    console.log(`   Process ID: ${process.pid}`);
-    console.log(`   Node version: ${process.version}`);
-    console.log(`   Working directory: ${process.cwd()}\n`);
-    
     const server = app.listen(PORT, () => {
-        // Logs imediatos e forçados
-        process.stdout.write(`🌐 Servidor HTTP iniciado na porta ${PORT}\n`);
-        console.log(`🌐 Servidor HTTP iniciado na porta ${PORT}`);
-        addLog('INFO', `Servidor HTTP iniciado na porta ${PORT}.`);
-        
-        // Inicializar WhatsApp em background após servidor HTTP estar rodando
-        process.stdout.write('\n');
-        process.stdout.write('═══════════════════════════════════════════════════════════\n');
-        process.stdout.write('🚀 INICIANDO WHATSAPP\n');
-        process.stdout.write('═══════════════════════════════════════════════════════════\n');
-        process.stdout.write('\n');
-        
-        console.log('\n═══════════════════════════════════════════════════════════');
-        console.log('🚀 INICIANDO WHATSAPP');
-        console.log('═══════════════════════════════════════════════════════════\n');
-        
-        console.log('📋 Verificando configurações...');
-        console.log(`   MongoDB URI: ${MONGODB_URI ? 'Configurado (' + MONGODB_URI.substring(0, 20) + '...)' : 'Não configurado'}`);
-        console.log(`   MongoDB DB: ${MONGODB_DB_NAME}`);
-        console.log(`   RemoteAuth: ${USE_REMOTE_AUTH ? 'Sim' : 'Não'}`);
-        console.log(`   WhatsApp Number: ${WHATSAPP_NUMBER}`);
-        console.log(`   MongoStore disponível: ${MongoStore ? 'Sim' : 'Não'}\n`);
-        
-        console.log('🔄 Chamando initializeWhatsApp()...');
-        process.stdout.write('🔄 Chamando initializeWhatsApp()...\n');
-        
-        // Garantir que a função existe
-        if (typeof initializeWhatsApp !== 'function') {
-            console.error('❌ ERRO: initializeWhatsApp não é uma função!');
-            console.error('   Tipo:', typeof initializeWhatsApp);
-            return;
-        }
-        
-        initializeWhatsApp().then(() => {
-            process.stdout.write('✅ initializeWhatsApp() concluído com sucesso\n');
-            console.log('✅ initializeWhatsApp() concluído com sucesso');
-        }).catch((err) => {
-            process.stdout.write('\n');
-            process.stdout.write('❌❌❌ ERRO AO INICIALIZAR WHATSAPP (Promise) ❌❌❌\n');
-            process.stdout.write(`Erro: ${err.message}\n`);
-            process.stdout.write(`Stack: ${err.stack}\n`);
-            process.stdout.write('\n');
-            
-            console.error('\n❌❌❌ ERRO AO INICIALIZAR WHATSAPP (Promise) ❌❌❌\n');
-            console.error('Erro:', err.message);
-            console.error('Stack:', err.stack);
-            console.error('\n═══════════════════════════════════════════════════════════\n');
-            console.log('⚠️ O servidor HTTP continuará rodando, mas o WhatsApp não funcionará.');
-            console.log('Verifique os logs acima para identificar o problema.\n');
-        });
+        console.log(`🌐 Servidor WhatsApp rodando na porta ${PORT}`);
+        console.log(`📱 Aguardando autenticação do WhatsApp...`);
+        console.log(`📞 Número de destino: ${WHATSAPP_NUMBER}`);
+        console.log(`🔗 Link de compra: ${WHATSAPP_LINK}`);
+        console.log(`\n💡 Acesse http://localhost:${PORT}/health para verificar o status\n`);
     });
 
     server.on('error', (err) => {
@@ -1941,19 +1436,39 @@ try {
             console.error(`\n❌❌❌ ERRO: Porta ${PORT} já está em uso! ❌❌❌\n`);
             console.log(`═══════════════════════════════════════════════════════════`);
             console.log(`  SOLUÇÃO RÁPIDA:`);
-            console.log(`  Execute: lsof -ti:${PORT} | xargs kill -9`);
-            console.log(`  Ou altere a porta no arquivo .env\n`);
+            console.log(`═══════════════════════════════════════════════════════════\n`);
+            console.log(`1. Execute: liberar-porta-3001.bat`);
+            console.log(`   (Este script irá finalizar processos usando a porta 3001)\n`);
+            console.log(`2. OU feche a janela do servidor WhatsApp anterior`);
+            console.log(`   (Procure por janelas com "Servidor Flask" ou "WhatsApp")\n`);
+            console.log(`3. OU execute no terminal:`);
+            console.log(`   netstat -ano | findstr :3001`);
+            console.log(`   taskkill /F /PID [NUMERO_DO_PID]\n`);
+            console.log(`═══════════════════════════════════════════════════════════\n`);
+            console.log(`⚠️  O servidor não pode iniciar enquanto a porta estiver em uso.\n`);
+            console.log(`Aguardando 10 segundos antes de fechar...\n`);
+            setTimeout(() => process.exit(1), 10000);
         } else {
-            console.error(`\n❌❌❌ ERRO NO SERVIDOR ❌❌❌\n`);
-            console.error('Erro:', err.message);
-            console.error('Stack:', err.stack);
+            console.error(`\n❌ Erro ao iniciar servidor: ${err.message}\n`);
+            console.error(`Stack: ${err.stack}\n`);
+            console.log(`Aguardando 10 segundos antes de fechar...\n`);
+            setTimeout(() => process.exit(1), 10000);
         }
-        process.exit(1);
     });
 } catch (err) {
     console.error('\n❌❌❌ ERRO AO CRIAR SERVIDOR ❌❌❌\n');
     console.error('Erro:', err.message);
     console.error('Stack:', err.stack);
     console.error('\n═══════════════════════════════════════════════════════════\n');
-    process.exit(1);
+    console.log('Aguardando 10 segundos antes de fechar...\n');
+    setTimeout(() => process.exit(1), 10000);
 }
+    console.error('Erro:', err.message);
+    console.error('Stack:', err.stack);
+    console.error('\n═══════════════════════════════════════════════════════════\n');
+    console.log('Aguardando 10 segundos antes de fechar...\n');
+    setTimeout(() => process.exit(1), 10000);
+}
+
+
+

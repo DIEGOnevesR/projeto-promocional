@@ -86,5 +86,8 @@ pause
 
 
 
+<<<<<<< HEAD
+=======
 
 
+>>>>>>> origin/master

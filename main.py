@@ -20,6 +20,23 @@ from html import escape
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+# Importar Cloudinary
+try:
+    from cloudinary_storage import (
+        get_image_base64_from_cloudinary,
+        get_image_url_from_cloudinary,
+        download_file_from_cloudinary,
+        upload_banner_to_cloudinary,
+        upload_cache_image_to_cloudinary,
+        get_cache_image_from_cloudinary,
+        save_template_to_cloudinary,
+        load_template_from_cloudinary
+    )
+    USE_CLOUDINARY = os.getenv('USE_CLOUDINARY', 'true').lower() == 'true'
+except ImportError:
+    USE_CLOUDINARY = False
+    print('⚠️ cloudinary_storage não encontrado. Usando arquivos locais.')
+
 # Configurar encoding UTF-8 para Windows
 if sys.platform == 'win32':
     try:
@@ -91,7 +108,34 @@ class BannerGenerator:
         self.whatsapp_thread_running = False
     
     def load_template(self, silent=False):
-        """Carrega configuração do template se existir"""
+        """Carrega configuração do template se existir - suporta Cloudinary"""
+        # Tentar Cloudinary primeiro se habilitado
+        if USE_CLOUDINARY:
+            try:
+                template_data = load_template_from_cloudinary()
+                if template_data and isinstance(template_data, dict) and len(template_data) > 0:
+                    if not silent:
+                        print(f'✓ Template carregado do Cloudinary: {len(template_data)} propriedades')
+                    # Normalizar valores (mesmo código de normalização)
+                    for key, value in template_data.items():
+                        if key in ['desconto-badge-shape', 'footer-rotation'] or key.endswith('-font-family') or key.endswith('-font-weight') or key.endswith('-font-style') or key.endswith('-color') or key.endswith('-bg-color'):
+                            continue
+                        if isinstance(value, str) and value.strip() == '0':
+                            template_data[key] = 0
+                        elif isinstance(value, str):
+                            try:
+                                if '.' not in value.strip():
+                                    template_data[key] = int(float(value.strip()))
+                                else:
+                                    template_data[key] = float(value.strip())
+                            except (ValueError, TypeError):
+                                pass
+                    return template_data
+            except Exception as e:
+                if not silent:
+                    print(f'⚠ Erro ao carregar template do Cloudinary: {e}. Tentando local...')
+        
+        # Fallback para arquivo local
         # Usar caminho absoluto para garantir que encontre o arquivo
         template_path = os.path.abspath(TEMPLATE_FILE)
         
@@ -170,7 +214,7 @@ class BannerGenerator:
             # Tentar também caminho relativo (por compatibilidade) - evitar recursão
             rel_path = TEMPLATE_FILE
             if os.path.exists(rel_path) and os.path.abspath(rel_path) != template_path:
-            if not silent:
+                if not silent:
                     print(f'⚠ Arquivo encontrado apenas com caminho relativo, usando caminho relativo...')
                 try:
                     with open(rel_path, 'r', encoding='utf-8') as f:
@@ -565,14 +609,35 @@ class BannerGenerator:
         return str(value)
     
     def image_to_base64(self, image_path):
-        """Converte imagem para base64 (com cache)"""
-        if not os.path.exists(image_path):
-            return None
-        
+        """Converte imagem para base64 (com cache) - suporta Cloudinary e local"""
         # Verificar cache primeiro
-        abs_path = os.path.abspath(image_path)
+        abs_path = os.path.abspath(image_path) if not USE_CLOUDINARY else image_path
         if abs_path in self.local_images_cache:
             return self.local_images_cache[abs_path]
+        
+        # Tentar Cloudinary primeiro se habilitado
+        if USE_CLOUDINARY:
+            try:
+                # Extrair nome do arquivo sem extensão
+                filename = Path(image_path).stem
+                # Determinar pasta baseado no caminho
+                if 'imagens' in image_path.lower() or 'Imagens' in image_path:
+                    folder = 'imagens'
+                elif 'bandeira' in image_path.lower() or 'Bandeira' in image_path:
+                    folder = 'bandeiras'
+                else:
+                    folder = 'imagens'  # default
+                
+                result = get_image_base64_from_cloudinary(filename, folder=folder)
+                if result:
+                    self.local_images_cache[abs_path] = result
+                    return result
+            except Exception as e:
+                print(f'⚠ Erro ao buscar do Cloudinary: {e}. Tentando local...')
+        
+        # Fallback para arquivo local
+        if not os.path.exists(image_path):
+            return None
         
         try:
             with open(image_path, 'rb') as f:
@@ -617,7 +682,18 @@ class BannerGenerator:
         return os.path.join(self.cache_folder, f'{codigo}.png')
     
     def load_from_cache(self, codigo):
-        """Carrega imagem processada do cache e normaliza se necessário"""
+        """Carrega imagem processada do cache e normaliza se necessário - suporta Cloudinary"""
+        # Tentar Cloudinary primeiro se habilitado
+        if USE_CLOUDINARY:
+            try:
+                cached_data = get_cache_image_from_cloudinary(codigo)
+                if cached_data:
+                    print(f'  ✓ Imagem carregada do cache Cloudinary (produto {codigo})')
+                    return cached_data
+            except Exception as e:
+                print(f'  ⚠ Erro ao buscar cache do Cloudinary: {e}. Tentando local...')
+        
+        # Fallback para cache local
         cache_path = self.get_cache_path(codigo)
         if os.path.exists(cache_path):
             try:
@@ -645,15 +721,26 @@ class BannerGenerator:
         return None
     
     def save_to_cache(self, codigo, image_bytes):
-        """Salva imagem processada no cache"""
+        """Salva imagem processada no cache - suporta Cloudinary"""
+        # Salvar localmente primeiro
         cache_path = self.get_cache_path(codigo)
         try:
             with open(cache_path, 'wb') as f:
                 f.write(image_bytes)
-            return True
         except Exception as e:
-            print(f'  ⚠ Erro ao salvar cache: {e}')
-            return False
+            print(f'  ⚠ Erro ao salvar cache local: {e}')
+        
+        # Upload para Cloudinary se habilitado
+        if USE_CLOUDINARY:
+            try:
+                url = upload_cache_image_to_cloudinary(codigo, image_bytes)
+                if url:
+                    print(f'  ✓ Cache enviado para Cloudinary (produto {codigo})')
+                    return True
+            except Exception as e:
+                print(f'  ⚠ Erro ao enviar cache para Cloudinary: {e}')
+        
+        return True
     
     def normalize_product_size(self, img, target_size=1000, padding_percent=5):
         """
@@ -1301,16 +1388,27 @@ class BannerGenerator:
             bandeira_b64 = None
             bandeira_mime = 'image/png'
             if bandeira:
-                bandeira_folder = 'Bandeira'
-                # Tentar diferentes extensões
-                for ext in ['.png', '.jpg', '.jpeg', '.PNG', '.JPG', '.JPEG']:
-                    bandeira_path = os.path.join(bandeira_folder, f'{bandeira}{ext}')
-                    if os.path.exists(bandeira_path):
-                        bandeira_b64 = self.image_to_base64(bandeira_path)
+                # Tentar Cloudinary primeiro se habilitado
+                if USE_CLOUDINARY:
+                    try:
+                        bandeira_b64 = get_image_base64_from_cloudinary(bandeira, folder='bandeiras')
                         if bandeira_b64:
-                            if ext.lower() in ['.jpg', '.jpeg']:
-                                bandeira_mime = 'image/jpeg'
-                            break
+                            print(f'  ✓ Bandeira carregada do Cloudinary: {bandeira}')
+                    except Exception as e:
+                        print(f'  ⚠ Erro ao buscar bandeira do Cloudinary: {e}. Tentando local...')
+                
+                # Fallback para arquivo local
+                if not bandeira_b64:
+                    bandeira_folder = 'Bandeira'
+                    # Tentar diferentes extensões
+                    for ext in ['.png', '.jpg', '.jpeg', '.PNG', '.JPG', '.JPEG']:
+                        bandeira_path = os.path.join(bandeira_folder, f'{bandeira}{ext}')
+                        if os.path.exists(bandeira_path):
+                            bandeira_b64 = self.image_to_base64(bandeira_path)
+                            if bandeira_b64:
+                                if ext.lower() in ['.jpg', '.jpeg']:
+                                    bandeira_mime = 'image/jpeg'
+                                break
             
             # Configurações para imagem da bandeira
             # Verificar se há valores definidos nos controles, senão usar do badge
@@ -2698,6 +2796,15 @@ body {{ margin: 0; padding: 0; width: {BANNER_WIDTH}px; height: {BANNER_HEIGHT}p
                 self.html_to_image(html, output_path)
                 print(f'  ✅ Banner salvo: {output_path}')
                 generated_paths.append(output_path)
+                
+                # Upload para Cloudinary se habilitado
+                if USE_CLOUDINARY:
+                    try:
+                        banner_url = upload_banner_to_cloudinary(output_path, unidade, data_atual, banner_sequencia)
+                        if banner_url:
+                            print(f'  ✅ Banner enviado para Cloudinary: {banner_url}')
+                    except Exception as e:
+                        print(f'  ⚠ Erro ao enviar banner para Cloudinary: {e}')
                 unidade_banners.append(output_path)  # Adicionar à lista da unidade
                 total_banners_gerados += 1
 
