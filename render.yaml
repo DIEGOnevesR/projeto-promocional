@@ -11,3 +11,9 @@ services:
         value: "False"
       - key: PYTHON_VERSION
         value: 3.11.0
+      - key: CLOUDINARY_CLOUD_NAME
+        value: divlmyzig
+      - key: CLOUDINARY_API_KEY
+        value: 573712429865238
+      - key: CLOUDINARY_API_SECRET
+        value: m_yHXjNUHkm8N2S05Jt3mkgig5w

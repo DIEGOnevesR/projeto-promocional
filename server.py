@@ -309,55 +309,82 @@ def get_product_image(codigo):
 
 @app.route('/get-image/<image_name>', methods=['GET'])
 def get_image(image_name):
-    """Retorna uma imagem da pasta imagens como base64"""
-    import base64
-    
-    images_folder = 'imagens'
-    
-    # Lista de possíveis nomes de arquivo (case-insensitive)
-    possible_names = [
-        image_name,
-        image_name + '.png',
-        image_name + '.jpg',
-        image_name + '.jpeg',
-        image_name + '.PNG',
-        image_name + '.JPG',
-        image_name + '.JPEG',
-    ]
-    
-    # Mapear nomes de imagem solicitados para nomes reais
-    image_mapping = {
-        'base-produto': 'Base do Produto',
-        'call-action': 'Call Action',
-        'fundo': 'Fundo',
-        'logo-inferior': 'Logo Inferior',
-        'logo-ofertas': 'logo ofertas',
-        'logo-superior': 'Logo',
-    }
-    
-    # Verificar se há um mapeamento
-    if image_name in image_mapping:
-        base_name = image_mapping[image_name]
-        possible_names = [
-            base_name + '.png',
-            base_name + '.jpg',
-            base_name + '.jpeg',
-            base_name + '.PNG',
-            base_name + '.JPG',
-            base_name + '.JPEG',
-        ]
-    
-    # Tentar encontrar o arquivo
-    for name in possible_names:
-        image_path = os.path.join(images_folder, name)
-        if os.path.exists(image_path):
-            try:
-                with open(image_path, 'rb') as f:
-                    image_data = base64.b64encode(f.read()).decode('utf-8')
-                
-                # Determinar MIME type
+    """Retorna uma imagem do Cloudinary (pasta imagens) como base64"""
+    try:
+        # Tentar importar cloudinary_storage
+        try:
+            from cloudinary_storage import get_image_base64_from_cloudinary
+        except ImportError:
+            # Fallback: tentar carregar do arquivo local se Cloudinary não disponível
+            import base64
+            images_folder = 'Imagens'
+            
+            # Mapear nomes de imagem solicitados para nomes reais
+            image_mapping = {
+                'base-produto': 'Base do Produto',
+                'call-action': 'Call Action',
+                'fundo': 'Fundo',
+                'logo-inferior': 'Logo Inferior',
+                'logo-ofertas': 'logo ofertas',
+                'logo-superior': 'Logo',
+            }
+            
+            # Verificar se há um mapeamento
+            base_name = image_mapping.get(image_name, image_name)
+            possible_names = [
+                base_name + '.png',
+                base_name + '.jpg',
+                base_name + '.jpeg',
+                base_name + '.PNG',
+                base_name + '.JPG',
+                base_name + '.JPEG',
+            ]
+            
+            # Tentar encontrar o arquivo local
+            for name in possible_names:
+                image_path = os.path.join(images_folder, name)
+                if os.path.exists(image_path):
+                    try:
+                        with open(image_path, 'rb') as f:
+                            image_data = base64.b64encode(f.read()).decode('utf-8')
+                        
+                        # Determinar MIME type
+                        mime_type = 'image/png'
+                        if name.lower().endswith('.jpg') or name.lower().endswith('.jpeg'):
+                            mime_type = 'image/jpeg'
+                        
+                        return jsonify({
+                            'status': 'success',
+                            'data': f'data:{mime_type};base64,{image_data}',
+                            'mime_type': mime_type
+                        })
+                    except Exception as e:
+                        return jsonify({'status': 'error', 'error': str(e)}), 500
+            
+            return jsonify({'status': 'error', 'error': f'Imagem não encontrada: {image_name}'}), 404
+        
+        # Mapear nomes de imagem solicitados para nomes reais no Cloudinary
+        image_mapping = {
+            'base-produto': 'Base do Produto',
+            'call-action': 'Call Action',
+            'fundo': 'Fundo',
+            'logo-inferior': 'Logo Inferior',
+            'logo-ofertas': 'logo ofertas',
+            'logo-superior': 'Logo',
+        }
+        
+        # Obter nome real da imagem
+        base_name = image_mapping.get(image_name, image_name)
+        
+        # Buscar imagem do Cloudinary
+        try:
+            image_data = get_image_base64_from_cloudinary(base_name, folder='imagens')
+            
+            if image_data:
+                # Determinar MIME type (assumir PNG por padrão, mas Cloudinary pode retornar qualquer formato)
                 mime_type = 'image/png'
-                if name.lower().endswith('.jpg') or name.lower().endswith('.jpeg'):
+                # Tentar detectar pelo nome
+                if 'jpg' in base_name.lower() or 'jpeg' in base_name.lower():
                     mime_type = 'image/jpeg'
                 
                 return jsonify({
@@ -365,10 +392,48 @@ def get_image(image_name):
                     'data': f'data:{mime_type};base64,{image_data}',
                     'mime_type': mime_type
                 })
-            except Exception as e:
-                return jsonify({'status': 'error', 'error': str(e)}), 500
-    
-    return jsonify({'status': 'error', 'error': f'Imagem não encontrada: {image_name}'}), 404
+            else:
+                # Se Cloudinary falhou, tentar fallback local
+                import base64
+                images_folder = 'Imagens'
+                possible_names = [
+                    base_name + '.png',
+                    base_name + '.jpg',
+                    base_name + '.jpeg',
+                    base_name + '.PNG',
+                    base_name + '.JPG',
+                    base_name + '.JPEG',
+                ]
+                
+                for name in possible_names:
+                    image_path = os.path.join(images_folder, name)
+                    if os.path.exists(image_path):
+                        try:
+                            with open(image_path, 'rb') as f:
+                                image_data = base64.b64encode(f.read()).decode('utf-8')
+                            
+                            mime_type = 'image/png'
+                            if name.lower().endswith('.jpg') or name.lower().endswith('.jpeg'):
+                                mime_type = 'image/jpeg'
+                            
+                            return jsonify({
+                                'status': 'success',
+                                'data': f'data:{mime_type};base64,{image_data}',
+                                'mime_type': mime_type
+                            })
+                        except Exception as e:
+                            pass
+                
+                return jsonify({'status': 'error', 'error': f'Imagem não encontrada no Cloudinary nem localmente: {image_name} (procurando: {base_name})'}), 404
+        except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
+            print(f'❌ Erro ao buscar imagem do Cloudinary: {e}')
+            print(f'Detalhes: {error_details}')
+            return jsonify({'status': 'error', 'error': f'Erro ao buscar imagem: {str(e)}'}), 500
+            
+    except Exception as e:
+        return jsonify({'status': 'error', 'error': str(e)}), 500
 
 @app.route('/upload-image', methods=['POST'])
 def upload_image():
