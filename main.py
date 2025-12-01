@@ -2291,7 +2291,7 @@ body {{ margin: 0; padding: 0; width: {BANNER_WIDTH}px; height: {BANNER_HEIGHT}p
             # Obter legenda do template ou usar padrão
             caption_text = self.get_template_value('banner-caption', '').strip()
             if not caption_text:
-            caption_text = f'Compre no WhatsApp - {WHATSAPP_LINK}'
+                caption_text = f'Compre no WhatsApp - {WHATSAPP_LINK}'
             
             # Enviar para grupo
             response = requests.post(
@@ -2376,7 +2376,7 @@ body {{ margin: 0; padding: 0; width: {BANNER_WIDTH}px; height: {BANNER_HEIGHT}p
             # Obter legenda do template ou usar padrão
             caption_text = self.get_template_value('banner-caption', '').strip()
             if not caption_text:
-            caption_text = f'Compre no WhatsApp - {WHATSAPP_LINK}'
+                caption_text = f'Compre no WhatsApp - {WHATSAPP_LINK}'
             
             # Enviar imagem
             print(f'  🔄 Enviando {os.path.basename(image_path)} ao WhatsApp...')
