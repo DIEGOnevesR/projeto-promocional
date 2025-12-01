@@ -1147,7 +1147,7 @@ class BannerGenerator:
             if '_imagem_url_processada' in produto:
                 imagem_url = produto['_imagem_url_processada']
             else:
-            imagem_url = self.get_product_image_with_background_removed(codigo)
+                imagem_url = self.get_product_image_with_background_removed(codigo)
             
             # Obter valores do template
             padding = self.format_css_value('produto-container-padding', self.get_template_value('produto-container-padding', 15))
